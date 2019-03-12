@@ -101,6 +101,7 @@ public class Environment
                 {
                     isFinished = true;
                     reward = 1.0f;
+                    return isFinished;
                 }
                 else if (m_currentGrid[i] == (int)GridSlot.Blocked)
                 {

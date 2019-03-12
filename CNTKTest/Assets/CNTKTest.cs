@@ -27,7 +27,7 @@ public class CNTKTest : MonoBehaviour {
         {
             env.Reset();
 
-            epsillon = Mathf.Max(MinEpsillon, 1.0f - (episodeCount / EpisodeCount));
+            epsillon = Mathf.Max(MinEpsillon, 1.0f - (episodeCount / (EpisodeCount / 2)));
 
             float episodeReward = 0.0f;
             var currentState = Array.ConvertAll<int, float>(env.GetCurrentState(), x => Convert.ToSingle(x));
@@ -43,8 +43,8 @@ public class CNTKTest : MonoBehaviour {
 
                 var nextState = Array.ConvertAll<int, float>(env.GetCurrentState(), x => Convert.ToSingle(x));
 
-                agent.Observe(currentState, (float)action, reward, nextState);
-                agent.Train(64, device);
+                agent.Observe(currentState, (float)action, reward, nextState, isFinished ? 1.0f : 0.0f);
+                agent.Train(64, 0.99f, device);
 
                 if(isFinished)
                 {

@@ -10,14 +10,14 @@ class Memory
 {
     public Memory(int stateSize, int capacity = 1024)
     {
-        m_experienceSize = (stateSize * 2) + 2;//current state, action, reward, next state
+        m_experienceSize = (stateSize * 2) + 3;//current state, action, reward, next state, done
 
         m_memoryBuffer = new Queue<float>(capacity * m_experienceSize);
-        randomIndexList = new int[capacity];
+        m_randomIndexList = new int[capacity];
 
         for(int i = 0; i < capacity; ++i)
         {
-            randomIndexList[i] = i;
+            m_randomIndexList[i] = i;
         }
     }
 
@@ -37,22 +37,29 @@ class Memory
         float[] allSamples = m_memoryBuffer.ToArray();
 
         //if requested sample size is greater than the current memory size
-        if(sampleSize > (m_memoryBuffer.Count / m_experienceSize))
+        var currentMemoryCount = m_memoryBuffer.Count / m_experienceSize;
+        if (sampleSize > currentMemoryCount)
         {
             return allSamples;
         }
 
-        ShuffleClass.Shuffle<int>(randomIndexList);
+        ShuffleClass.Shuffle<int>(m_randomIndexList);
 
         List<float> samples = new List<float>(sampleSize * m_experienceSize);
 
+        int randomIndex = 0;
         for(int i = 0; i < sampleSize; ++i)
         {
-            for(int j = 0; j < m_experienceSize; ++j)
+            while(randomIndex < m_randomIndexList.Length && m_randomIndexList[randomIndex] >= currentMemoryCount)
             {
-                int index = randomIndexList[i] * m_experienceSize;
-                index += j;
-                samples.Add(allSamples[index]);
+                randomIndex++;
+            }
+
+            int index = m_randomIndexList[randomIndex] * m_experienceSize;
+
+            for (int j = 0; j < m_experienceSize; ++j)
+            {
+                samples.Add(allSamples[index + j]);
             }
         }
 
@@ -61,7 +68,7 @@ class Memory
 
     private Queue<float> m_memoryBuffer;
     private int m_experienceSize;
-    private int[] randomIndexList;
+    private int[] m_randomIndexList;
 }
 
 static class ShuffleClass

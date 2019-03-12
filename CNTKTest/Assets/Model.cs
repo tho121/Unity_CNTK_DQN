@@ -21,11 +21,11 @@ class Model
         return sigmoid;
     }
 
-    public static Function CreateNetwork(int stateSize, int actionSize, int layerSize)
+    public static Function CreateNetwork(int stateSize, int actionSize, int layerSize, out Variable inputVariable)
     {
-        var input = CNTKLib.InputVariable(new int[] { stateSize }, DataType.Float);
+        inputVariable = CNTKLib.InputVariable(new int[] { stateSize }, DataType.Float);
 
-        var linear1 = LinearLayer(input, layerSize);
+        var linear1 = LinearLayer(inputVariable, layerSize);
         var relu1 = CNTKLib.ReLU(linear1);
         var linear2 = LinearLayer(relu1, layerSize);
         var relu2 = CNTKLib.ReLU(linear2);

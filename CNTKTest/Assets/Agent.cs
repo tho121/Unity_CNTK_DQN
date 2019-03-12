@@ -13,10 +13,11 @@ class Agent
         m_stateSize = stateSize;
         m_actionSize = actionSize;
 
-        m_localNetwork = Model.CreateNetwork(m_stateSize, m_actionSize, layerSize);
+        m_localNetwork = Model.CreateNetwork(m_stateSize, m_actionSize, layerSize, out m_stateInput);
         //m_targetNetwork = Model.CreateNetwork(m_stateSize, m_actionSize, layerSize);
 
-        m_stateInput = CNTKLib.InputVariable(new int[] { m_stateSize }, DataType.Float, "stateInput");
+        //TODO: where the fuck does this hook up?
+        //m_stateInput = CNTKLib.InputVariable(new int[] { m_stateSize }, DataType.Float, "stateInput");
         m_qTargetOutput = CNTKLib.InputVariable(new int[] { m_actionSize }, DataType.Float, "targetOutput");
 
         var loss = CNTKLib.ReduceMean(CNTKLib.Square(CNTKLib.Minus(m_localNetwork.Output, m_qTargetOutput)), new Axis(0));
@@ -41,9 +42,15 @@ class Agent
         List<float> states = new List<float>();
         List<float> rewards = new List<float>();
 
-        int experienceSize = (m_stateSize * 2) + 2;
+        int experienceSize = (m_stateSize * 2) + 3;
 
-        sampleSize = Math.Min(sampleSize, samples.Length / experienceSize);
+        var currentSampleCount = samples.Length / experienceSize;
+
+        if(currentSampleCount < sampleSize)
+        {
+            return;
+        }
+        //sampleSize = Math.Min(sampleSize, );
 
         for(int i = 0; i < sampleSize; ++i)
         {
@@ -53,14 +60,30 @@ class Agent
                 states.Add(samples[start + j]);
             }
 
+            //s,a,r,s',done
+            var currentState = states.GetRange(states.Count - m_stateSize, m_stateSize).ToArray();
+            var action = (int)samples[start + m_stateSize];
             var reward = samples[start + m_stateSize + 1];  //state size + action + reward offset
+            var isDone = samples[start + (m_stateSize * 2) + 2] > 0.0f;
+            
+            var qValues = GetQValues(currentState, device);
 
-            var qValues = GetQValues(states.GetRange(states.Count - 1 - m_stateSize, m_stateSize).ToArray(), device);
+            qValues[action] = reward;
 
-            //TODO: if not done, do this, else skip
-            reward += gamma * GetMaxReward(qValues);
+            if (!isDone)
+            {
+                var nextState = new List<float>();
 
-            rewards.Add(reward);
+                int nextStateStart = start + m_stateSize + 2;
+                for (int j = 0; j < m_stateSize; ++j)
+                {
+                    nextState.Add(samples[nextStateStart + j]);
+                }
+
+                qValues[action] += gamma * GetMaxReward(GetQValues(nextState.ToArray(), device));
+            }
+
+            rewards.AddRange(qValues);
         }
 
 
@@ -69,7 +92,7 @@ class Agent
 
         //TODO: check that states is working
         Value input = Value.CreateBatch<float>(new int[] { m_stateSize }, statesFlattened, device);
-        Value output = Value.CreateBatch<float>(new int[] { 1 }, rewardsFlattened, device);
+        Value output = Value.CreateBatch<float>(new int[] { m_actionSize }, rewardsFlattened, device);
 
         var arguments = new Dictionary<Variable, Value>()
         {
@@ -80,12 +103,13 @@ class Agent
         m_trainer.TrainMinibatch(arguments, false, device);
     }
 
-    public void Observe(float[] state, float action, float reward, float[] nextState)
+    public void Observe(float[] state, float action, float reward, float[] nextState, float isDone)
     {
         List<float> experience = new List<float>(state);
         experience.Add(action);
         experience.Add(reward);
         experience.AddRange(nextState);
+        experience.Add(isDone);
 
         m_memory.Add(experience.ToArray());
     }
@@ -124,15 +148,16 @@ class Agent
 
         var outputDict = new Dictionary<Variable, Value>()
         {
-            { m_qTargetOutput, null}
+            //{ m_qTargetOutput, null}
+            {m_localNetwork.Output, null }
         };
 
 
         m_localNetwork.Evaluate(inputDict, outputDict, device);
 
-        var outputValue = outputDict[m_qTargetOutput];
+        var outputValue = outputDict[m_localNetwork.Output];
 
-        return outputValue.GetDenseData<float>(m_qTargetOutput)[0];
+        return outputValue.GetDenseData<float>(m_localNetwork.Output)[0];
     }
 
     private int GetArgMax(IList<float> argmaxArray)
