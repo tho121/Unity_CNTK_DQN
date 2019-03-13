@@ -6,59 +6,106 @@ using UnityEngine;
 
 public class CNTKTest : MonoBehaviour {
 
-    const int EpisodeCount = 100;
+    const int EpisodeCount = 200;
     const int MaxSteps = 20;
     const float MinEpsillon = 0.05f;
+    const int LayerSize = 32;
 
 	// Use this for initialization
-	void Start () {
-        var device = DeviceDescriptor.UseDefaultDevice();
-        print($"Hello from CNTK for {device.Type} only!");
+	void Start ()
+    {
+        m_device = DeviceDescriptor.UseDefaultDevice();
+        print($"Hello from CNTK for {m_device.Type} only!");
 
         var env = new Environment();
-
         var stateSize = env.GetStateSize();
         var actionSize = env.GetActionSize();
+        Agent agent = new Agent(stateSize, actionSize, LayerSize);
 
-        var agent = new Agent(stateSize, actionSize, 64);
-        var epsillon = 1.0f;
-        
-        for(int episodeCount = 0; episodeCount < EpisodeCount; ++episodeCount)
+        Play(agent, env, EpisodeCount, MinEpsillon, true);  //training
+        Play(agent, env, 100, 0.0f, false);     //no random and trained
+        Play(agent, env, 100, 1.0f, false);     //random
+    }
+
+    void Play(Agent agent, Environment env, int episodeCount = 100, float minEpsillon = 0.05f, bool isTraining = true)
+    {
+        var actionSize = env.GetActionSize();
+        var epsillon = isTraining ? 1.0f : minEpsillon;
+
+        var rewardQueue = new Queue<float>(100);
+
+        for (int epi = 0; epi < episodeCount; ++epi)
         {
             env.Reset();
 
-            epsillon = Mathf.Max(MinEpsillon, 1.0f - (episodeCount / (EpisodeCount / 2)));
+            if(isTraining)
+            {
+                epsillon = Mathf.Max(minEpsillon, 1.0f - ((float)epi / episodeCount));
+            }
 
             float episodeReward = 0.0f;
             var currentState = Array.ConvertAll<int, float>(env.GetCurrentState(), x => Convert.ToSingle(x));
 
-            for (int timeStep = 0; timeStep < MaxSteps; ++timeStep)
-            {
-                var action = agent.Act(currentState, epsillon, actionSize, device);
-                float reward = 0.0f;
+            List<int> actions = new List<int>(MaxSteps);
 
+            int t = 0;
+            for (t = 0; t < MaxSteps; t++)
+            {
+                var action = agent.Act(currentState, epsillon, actionSize, m_device);
+
+                actions.Add(action);
+
+                float reward = 0.0f;
                 bool isFinished = env.Act((Environment.Actions)action, out reward);
 
                 episodeReward += reward;
 
                 var nextState = Array.ConvertAll<int, float>(env.GetCurrentState(), x => Convert.ToSingle(x));
 
-                agent.Observe(currentState, (float)action, reward, nextState, isFinished ? 1.0f : 0.0f);
-                agent.Train(64, 0.99f, device);
-
-                if(isFinished)
+                if(isTraining)
                 {
+                    agent.Observe(currentState, (float)action, reward, nextState, isFinished ? 1.0f : 0.0f);
+                    agent.Train(64, 0.9f, m_device);
+                }
+
+                if (isFinished)
+                {
+                    if(!isTraining)
+                    {
+                        string path = "";
+                        for(int a = 0; a < actions.Count; ++a)
+                        {
+                            path += " " + actions[a].ToString();
+                        }
+
+                        Debug.Log("Path: " + path);
+                    }
+
                     break;
                 }
 
                 currentState = nextState;
             }
 
-            print("Reward: " + episodeCount + " " + episodeReward);
+            rewardQueue.Enqueue((float)t);
+            if ((epi + 1) % 100 == 0)
+            {
+                float rewardAvg = 0.0f;
+
+                while (rewardQueue.Count > 0)
+                {
+                    rewardAvg += rewardQueue.Dequeue();
+                }
+
+                rewardAvg /= 100.0f;
+
+                print("Reward: " + epi + " " + rewardAvg + " " + isTraining);
+                print("Loss: " + agent.GetTrainingLoss());
+            }
         }
-
-
     }
+
+    private DeviceDescriptor m_device;
     
 }
 

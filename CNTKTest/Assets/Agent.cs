@@ -20,17 +20,17 @@ class Agent
         //m_stateInput = CNTKLib.InputVariable(new int[] { m_stateSize }, DataType.Float, "stateInput");
         m_qTargetOutput = CNTKLib.InputVariable(new int[] { m_actionSize }, DataType.Float, "targetOutput");
 
-        var loss = CNTKLib.ReduceMean(CNTKLib.Square(CNTKLib.Minus(m_localNetwork.Output, m_qTargetOutput)), new Axis(0));
+        m_lossFunction = CNTKLib.ReduceMean(CNTKLib.Square(CNTKLib.Minus(m_localNetwork.Output, m_qTargetOutput)), new Axis(0));
         var meas = CNTKLib.ReduceMean(CNTKLib.Square(CNTKLib.Minus(m_localNetwork.Output, m_qTargetOutput)), new Axis(0));
 
-        var learningRate = new TrainingParameterScheduleDouble(0.0002);
+        var learningRate = new TrainingParameterScheduleDouble(0.002);
         var options = new AdditionalLearningOptions();
         options.gradientClippingThresholdPerSample = 10;
 
         //todo: check that m_localNetwork.Parameters() contains parameters for all layers at this point
         var learner = new List<Learner>() { Learner.SGDLearner(m_localNetwork.Parameters(), learningRate, options) };
 
-        m_trainer = Trainer.CreateTrainer(m_localNetwork, loss, meas, learner);
+        m_trainer = Trainer.CreateTrainer(m_localNetwork, m_lossFunction, meas, learner);
 
         m_memory = new Memory(m_stateSize);
     }
@@ -38,9 +38,6 @@ class Agent
     public void Train(int sampleSize, float gamma, DeviceDescriptor device)
     {
         float[] samples = m_memory.GetSamples(sampleSize);
-
-        List<float> states = new List<float>();
-        List<float> rewards = new List<float>();
 
         int experienceSize = (m_stateSize * 2) + 3;
 
@@ -50,9 +47,12 @@ class Agent
         {
             return;
         }
-        //sampleSize = Math.Min(sampleSize, );
 
-        for(int i = 0; i < sampleSize; ++i)
+        List<float> states = new List<float>(m_stateSize * sampleSize);
+        List<float> rewards = new List<float>(m_actionSize * sampleSize);
+        List<float> actions = new List<float>(sampleSize);
+
+        for (int i = 0; i < sampleSize; ++i)
         {
             int start = i * experienceSize;
             for(int j = 0; j < m_stateSize; ++j)
@@ -65,14 +65,16 @@ class Agent
             var action = (int)samples[start + m_stateSize];
             var reward = samples[start + m_stateSize + 1];  //state size + action + reward offset
             var isDone = samples[start + (m_stateSize * 2) + 2] > 0.0f;
-            
+
+            actions.Add(action);
+
             var qValues = GetQValues(currentState, device);
 
             qValues[action] = reward;
 
             if (!isDone)
             {
-                var nextState = new List<float>();
+                var nextState = new List<float>(m_stateSize);
 
                 int nextStateStart = start + m_stateSize + 2;
                 for (int j = 0; j < m_stateSize; ++j)
@@ -90,7 +92,6 @@ class Agent
         float[] statesFlattened = states.ToArray();
         float[] rewardsFlattened = rewards.ToArray();
 
-        //TODO: check that states is working
         Value input = Value.CreateBatch<float>(new int[] { m_stateSize }, statesFlattened, device);
         Value output = Value.CreateBatch<float>(new int[] { m_actionSize }, rewardsFlattened, device);
 
@@ -112,13 +113,6 @@ class Agent
         experience.Add(isDone);
 
         m_memory.Add(experience.ToArray());
-    }
-
-    public void CreateBatch(int sampleSize)
-    {
-        //todo: reference memory
-
-
     }
 
     public int Act(float[] state, float epsillon, int actionSize, DeviceDescriptor device)
@@ -171,7 +165,7 @@ class Agent
         {
             if(argmaxArray[i] > value)
             {
-                argmaxArray[i] = value;
+                value = argmaxArray[i];
                 index = i;
             }
         }
@@ -196,21 +190,22 @@ class Agent
         return value;
     }
 
+    public double GetTrainingLoss()
+    {
+        return m_trainer.PreviousMinibatchLossAverage();
+    }
+
 
     private Memory m_memory;
 
     private Function m_localNetwork;
-    //private Function m_targetNetwork;
+    private Function m_lossFunction;
+
     private Trainer m_trainer;
     private Variable m_stateInput;
     private Variable m_qTargetOutput;
 
     private int m_stateSize;
     private int m_actionSize;
-}
-
-class ReplayBuffer
-{
-
 }
 

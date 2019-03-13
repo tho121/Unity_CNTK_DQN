@@ -39,9 +39,12 @@ public class Environment
     {
         m_currentGrid = (int[])grid.Clone();
 
-        for (int i = 0; i < grid.Length; ++i)
+        for (int i = 0; i < m_currentGrid.Length; ++i)
         {
-            m_currentPosition = i;
+            if(m_currentGrid[i] == 0)
+            {
+                m_currentPosition = i;
+            }
         }
     }
 

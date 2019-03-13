@@ -61,6 +61,8 @@ class Memory
             {
                 samples.Add(allSamples[index + j]);
             }
+
+            randomIndex++;
         }
 
         return samples.ToArray();
