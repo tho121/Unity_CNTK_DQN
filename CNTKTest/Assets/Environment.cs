@@ -24,7 +24,7 @@ public class Environment
     }
 
     int[] grid = {0, 1, 1, 1,
-                  1, 1, 1, 2,
+                  1, 2, 1, 2,
                   1, 1, 1, 3};
 
     const int NumOfCols = 4;
@@ -131,7 +131,7 @@ public class Environment
 
     public int GetActionSize()
     {
-        //size of enum Actions
+        //Enum.GetNames(typeof(Actions)).Length;
         return 4;
     }
 

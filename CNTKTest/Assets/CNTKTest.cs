@@ -6,10 +6,12 @@ using UnityEngine;
 
 public class CNTKTest : MonoBehaviour {
 
-    const int EpisodeCount = 200;
+    const int EpisodeCount = 300;
     const int MaxSteps = 20;
     const float MinEpsillon = 0.05f;
     const int LayerSize = 32;
+    const float Gamma = 0.95f;
+    const int BatchSize = 64;
 
 	// Use this for initialization
 	void Start ()
@@ -65,7 +67,7 @@ public class CNTKTest : MonoBehaviour {
                 if(isTraining)
                 {
                     agent.Observe(currentState, (float)action, reward, nextState, isFinished ? 1.0f : 0.0f);
-                    agent.Train(64, 0.9f, m_device);
+                    agent.Train(BatchSize, Gamma, m_device);
                 }
 
                 if (isFinished)

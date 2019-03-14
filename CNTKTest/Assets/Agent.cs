@@ -14,23 +14,19 @@ class Agent
         m_actionSize = actionSize;
 
         m_localNetwork = Model.CreateNetwork(m_stateSize, m_actionSize, layerSize, out m_stateInput);
-        //m_targetNetwork = Model.CreateNetwork(m_stateSize, m_actionSize, layerSize);
 
-        //TODO: where the fuck does this hook up?
-        //m_stateInput = CNTKLib.InputVariable(new int[] { m_stateSize }, DataType.Float, "stateInput");
         m_qTargetOutput = CNTKLib.InputVariable(new int[] { m_actionSize }, DataType.Float, "targetOutput");
 
-        m_lossFunction = CNTKLib.ReduceMean(CNTKLib.Square(CNTKLib.Minus(m_localNetwork.Output, m_qTargetOutput)), new Axis(0));
+        var loss = CNTKLib.ReduceMean(CNTKLib.Square(CNTKLib.Minus(m_localNetwork.Output, m_qTargetOutput)), new Axis(0));
         var meas = CNTKLib.ReduceMean(CNTKLib.Square(CNTKLib.Minus(m_localNetwork.Output, m_qTargetOutput)), new Axis(0));
 
         var learningRate = new TrainingParameterScheduleDouble(0.002);
         var options = new AdditionalLearningOptions();
         options.gradientClippingThresholdPerSample = 10;
 
-        //todo: check that m_localNetwork.Parameters() contains parameters for all layers at this point
         var learner = new List<Learner>() { Learner.SGDLearner(m_localNetwork.Parameters(), learningRate, options) };
 
-        m_trainer = Trainer.CreateTrainer(m_localNetwork, m_lossFunction, meas, learner);
+        m_trainer = Trainer.CreateTrainer(m_localNetwork, loss, meas, learner);
 
         m_memory = new Memory(m_stateSize);
     }
@@ -142,7 +138,6 @@ class Agent
 
         var outputDict = new Dictionary<Variable, Value>()
         {
-            //{ m_qTargetOutput, null}
             {m_localNetwork.Output, null }
         };
 
@@ -199,7 +194,6 @@ class Agent
     private Memory m_memory;
 
     private Function m_localNetwork;
-    private Function m_lossFunction;
 
     private Trainer m_trainer;
     private Variable m_stateInput;
