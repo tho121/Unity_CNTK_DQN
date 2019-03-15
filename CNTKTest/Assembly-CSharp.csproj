@@ -63,6 +63,7 @@
     <Compile Include="Assets\Agent.cs" />
     <Compile Include="Assets\CNTKTest.cs" />
     <Compile Include="Assets\Environment.cs" />
+    <Compile Include="Assets\GraphUI.cs" />
     <Compile Include="Assets\Memory.cs" />
     <Compile Include="Assets\Model.cs" />
     <Reference Include="UnityEditor.StandardEvents">

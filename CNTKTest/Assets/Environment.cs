@@ -24,8 +24,8 @@ public class Environment
     }
 
     int[] grid = {0, 1, 1, 1,
-                  1, 2, 1, 2,
-                  1, 1, 1, 3};
+                  3, 1, 1, 2,
+                  1, 1, 1, 1};
 
     const int NumOfCols = 4;
     const int NumOfRows = 3;
@@ -103,7 +103,7 @@ public class Environment
                 if (m_currentGrid[i] == (int)GridSlot.Finish)
                 {
                     isFinished = true;
-                    reward = 1.0f;
+                    reward = 5.0f;
                     return isFinished;
                 }
                 else if (m_currentGrid[i] == (int)GridSlot.Blocked)
