@@ -8,8 +8,8 @@ using CNTK;
 
 class Agent
 {
-    const double LearningRate = 0.05;
-    const float TAU = 0.02f;
+    const double LearningRate = 0.01;
+    const float TAU = 0.0001f;
 
     public Agent(int stateSize, int actionSize, int layerSize)
     {
@@ -24,7 +24,16 @@ class Agent
         var loss = CNTKLib.ReduceMean(CNTKLib.Square(CNTKLib.Minus(m_localNetwork, m_qTargetOutput)), new Axis(0));
         var meas = CNTKLib.ReduceMean(CNTKLib.Square(CNTKLib.Minus(m_localNetwork, m_qTargetOutput)), new Axis(0));
 
-        var learningRate = new TrainingParameterScheduleDouble(LearningRate);
+        var vp = new VectorPairSizeTDouble()
+        {
+            new PairSizeTDouble(1, 0.1),
+            new PairSizeTDouble(1, 0.05),
+            new PairSizeTDouble(1, 0.02),
+            new PairSizeTDouble(1, 0.01),
+            new PairSizeTDouble(1, 0.005),
+        };
+
+        var learningRate = new TrainingParameterScheduleDouble(vp, 800);
 
         var learner = new List<Learner>() { Learner.SGDLearner(m_localNetwork.Parameters(), learningRate) };
 
@@ -88,7 +97,7 @@ class Agent
                 qValues[action] += gamma * GetMaxReward(GetTargetQValues(nextState.ToArray(), device));
             }
 
-            qValues[action] = UnityEngine.Mathf.Clamp(qValues[action], -1.0f, 1.0f);
+            //qValues[action] = UnityEngine.Mathf.Clamp(qValues[action], -1.0f, 1.0f);
 
             rewards.AddRange(qValues);
         }
@@ -108,7 +117,7 @@ class Agent
 
         m_trainer.TrainMinibatch(arguments, false, device);
 
-        //Model.SoftUpdate(m_localNetwork, m_targetNetwork, device, TAU);
+        Model.SoftUpdate(m_localNetwork, m_targetNetwork, device, TAU);
     }
 
     public void TransferLearning(DeviceDescriptor device)
@@ -169,7 +178,7 @@ class Agent
         return outputValue.GetDenseData<float>(m_localNetwork.Output)[0];
     }
 
-    private IList<float> GetTargetQValues(float[] state, DeviceDescriptor device)
+    public IList<float> GetTargetQValues(float[] state, DeviceDescriptor device)
     {
         Value input = Value.CreateBatch<float>(new int[] { state.Length }, state, device);
 

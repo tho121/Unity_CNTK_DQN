@@ -26,14 +26,14 @@ class Model
         inputVariable = CNTKLib.InputVariable(new int[] { stateSize }, DataType.Float);
 
         var linear1 = LinearLayer(inputVariable, layerSize);
-        //var relu1 = CNTKLib.ReLU(linear1);
-        var linear2 = LinearLayer(linear1, layerSize);
+        var relu1 = CNTKLib.ReLU(linear1);
+        var linear2 = LinearLayer(relu1, layerSize);
         var relu2 = CNTKLib.ReLU(linear2);
         var linear3 = LinearLayer(relu2, actionSize);
-        //var relu3 = CNTKLib.ReLU(linear3);
-        //var linear4 = LinearLayer(relu3, actionSize);
+        var relu3 = CNTKLib.ReLU(linear3);
+        var linear4 = LinearLayer(relu3, actionSize);
 
-        return linear3;
+        return linear4;
     }
 
     public static void SoftUpdate(Function trainingNetwork, Function targetNetwork, DeviceDescriptor device, float updateRate = 0.001f)

@@ -8,12 +8,12 @@ public class CNTKTest : MonoBehaviour {
 
     public GraphUI graphScript;
 
-    const int EpisodeCount = 2000;
-    const int MaxSteps = 20;
+    const int EpisodeCount = 4000;
+    const int MaxSteps = 10;
     const float MinEpsillon = 0.01f;
-    const int LayerSize = 32;
+    const int LayerSize = 24;
     const float Gamma = 0.99f;
-    const int BatchSize = 64;
+    const int BatchSize = 128;
 
     const int PrintInterval = 100;
 
@@ -42,6 +42,11 @@ public class CNTKTest : MonoBehaviour {
                 m_currentCoroutine = StartCoroutine(Play(m_agent, m_environment, 100, 0.0f, false));     //no random and trained
             }
             else if (m_coroutineCount == 2)
+            {
+                m_agent.TransferLearning(m_device);
+                m_currentCoroutine = StartCoroutine(Play(m_agent, m_environment, 100, 0.0f, false));     //no random and trained
+            }
+            else if (m_coroutineCount == 3)
             {
                 m_currentCoroutine = StartCoroutine(Play(m_agent, m_environment, 100, 1.0f, false));     //random
             }
@@ -73,15 +78,18 @@ public class CNTKTest : MonoBehaviour {
             for (t = 0; t < MaxSteps; t++)
             {
                 //debug!
-                if( t == 0 && (epi == 100 || epi == 1000 || epi == 1500 ))
+                if( t == 0 && (epi % 500 == 0))
                 {
                     foreach(var q in agent.GetLocalQValues(currentState, m_device))
                     {
                         print("QVAL: " + epi + " " + q);
                     }
+
+                    foreach (var q in agent.GetTargetQValues(currentState, m_device))
+                    {
+                        print("TARGET QVAL: " + epi + " " + q);
+                    }
                 }
-
-
 
                 var action = agent.Act(currentState, epsillon, actionSize, m_device, !isTraining);
 
@@ -97,6 +105,7 @@ public class CNTKTest : MonoBehaviour {
                 if(isTraining)
                 {
                     agent.Observe(currentState, (float)action, reward, nextState, isFinished ? 1.0f : 0.0f);
+                    agent.Train(BatchSize, Gamma, m_device);
                 }
 
                 if (isFinished)
@@ -120,7 +129,7 @@ public class CNTKTest : MonoBehaviour {
 
             if(isTraining)
             {
-                agent.Train(BatchSize, Gamma, m_device);
+                //agent.Train(BatchSize, Gamma, m_device);
 
                 if(epi > BatchSize)
                 {
@@ -133,10 +142,10 @@ public class CNTKTest : MonoBehaviour {
 
                 }
 
-                if((epi + 1) % 50 == 0)
-                {
-                    agent.TransferLearning(m_device);
-                }
+                //if((epi + 1) % 50 == 0)
+                //{
+                //    agent.TransferLearning(m_device);
+                //}
             }
 
             rewardQueue.Enqueue((float)episodeReward);
