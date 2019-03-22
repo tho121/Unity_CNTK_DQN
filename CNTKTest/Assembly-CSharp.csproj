@@ -66,6 +66,7 @@
     <Compile Include="Assets\GraphUI.cs" />
     <Compile Include="Assets\Memory.cs" />
     <Compile Include="Assets\Model.cs" />
+    <Compile Include="Assets\SumTree.cs" />
     <Reference Include="UnityEditor.StandardEvents">
       <HintPath>C:/Users/Tony/Desktop/CNTKTest/CNTKTestDQN/CNTKTest/Library/ScriptAssemblies/UnityEditor.StandardEvents.dll</HintPath>
     </Reference>

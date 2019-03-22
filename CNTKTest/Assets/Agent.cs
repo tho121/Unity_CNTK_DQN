@@ -9,7 +9,7 @@ using CNTK;
 class Agent
 {
     const double LearningRate = 0.01;
-    const float TAU = 0.0001f;
+    const float TAU = 0.00005f;
 
     public Agent(int stateSize, int actionSize, int layerSize)
     {
@@ -21,8 +21,8 @@ class Agent
 
         m_qTargetOutput = CNTKLib.InputVariable(new int[] { m_actionSize }, DataType.Float, "targetOutput");
 
-        var loss = CNTKLib.ReduceMean(CNTKLib.Square(CNTKLib.Minus(m_localNetwork, m_qTargetOutput)), new Axis(0));
-        var meas = CNTKLib.ReduceMean(CNTKLib.Square(CNTKLib.Minus(m_localNetwork, m_qTargetOutput)), new Axis(0));
+        var loss = CNTKLib.ReduceMean(CNTKLib.Square(CNTKLib.Minus(m_localNetwork.Output, m_qTargetOutput)), new Axis(0));
+        var meas = CNTKLib.ReduceMean(CNTKLib.Square(CNTKLib.Minus(m_localNetwork.Output, m_qTargetOutput)), new Axis(0));
 
         var vp = new VectorPairSizeTDouble()
         {
@@ -33,18 +33,19 @@ class Agent
             new PairSizeTDouble(1, 0.005),
         };
 
-        var learningRate = new TrainingParameterScheduleDouble(vp, 800);
+        var learningRate = new TrainingParameterScheduleDouble(vp, 400);
 
         var learner = new List<Learner>() { Learner.SGDLearner(m_localNetwork.Parameters(), learningRate) };
 
         m_trainer = Trainer.CreateTrainer(m_localNetwork, loss, meas, learner);
 
-        m_memory = new Memory(m_stateSize);
+        m_memory = new Memory(m_stateSize, 512);
     }
 
     public void Train(int sampleSize, float gamma, DeviceDescriptor device)
     {
-        float[] samples = m_memory.GetSamples(sampleSize);
+        int[] indexes;
+        float[] samples = m_memory.GetSamples(sampleSize, out indexes);
 
         int experienceSize = (m_stateSize * 2) + 3;
 
@@ -57,7 +58,7 @@ class Agent
 
         List<float> states = new List<float>(m_stateSize * sampleSize);
         List<float> rewards = new List<float>(m_actionSize * sampleSize);
-        List<float> actions = new List<float>(sampleSize);
+        List<float> errors = new List<float>(sampleSize);
 
         for (int i = 0; i < sampleSize; ++i)
         {
@@ -67,41 +68,19 @@ class Agent
                 states.Add(samples[start + j]);
             }
 
-            //s,a,r,s',done
-            var currentState = states.GetRange(states.Count - m_stateSize, m_stateSize).ToArray();
-            var action = (int)samples[start + m_stateSize];
-            var reward = samples[start + m_stateSize + 1];  //state size + action + reward offset
-            var isDone = samples[start + (m_stateSize * 2) + 2] > 0.0f;
-
-            actions.Add(action);
-
-            var qValues = GetLocalQValues(currentState, device).ToArray<float>();
-
-            //for (int j = 0; j < qValues.Length; ++j)
-            //{
-            //    qValues[j] = -1.0f;
-            //}
-
-            qValues[action] = reward;
-
-            if (!isDone)
-            {
-                var nextState = new List<float>(m_stateSize);
-
-                int nextStateStart = start + m_stateSize + 2;
-                for (int j = 0; j < m_stateSize; ++j)
-                {
-                    nextState.Add(samples[nextStateStart + j]);
-                }
-
-                qValues[action] += gamma * GetMaxReward(GetTargetQValues(nextState.ToArray(), device));
-            }
-
-            //qValues[action] = UnityEngine.Mathf.Clamp(qValues[action], -1.0f, 1.0f);
+            float[] exp = new float[experienceSize];
+            Array.Copy(samples, start, exp, 0, experienceSize);
+            float error;
+            var qValues = CalculateQValues(exp, gamma, device, out error);
 
             rewards.AddRange(qValues);
+            errors.Add(error);
         }
 
+        for(int i = 0; i < sampleSize; ++i)
+        {
+            m_memory.Update(indexes[i], errors[i]);
+        }
 
         float[] statesFlattened = states.ToArray();
         float[] rewardsFlattened = rewards.ToArray();
@@ -117,7 +96,7 @@ class Agent
 
         m_trainer.TrainMinibatch(arguments, false, device);
 
-        Model.SoftUpdate(m_localNetwork, m_targetNetwork, device, TAU);
+        //Model.SoftUpdate(m_localNetwork, m_targetNetwork, device, TAU);
     }
 
     public void TransferLearning(DeviceDescriptor device)
@@ -125,7 +104,7 @@ class Agent
         Model.SoftUpdate(m_localNetwork, m_targetNetwork, device, 1.0f);
     }
 
-    public void Observe(float[] state, float action, float reward, float[] nextState, float isDone)
+    public void Observe(float[] state, float action, float reward, float[] nextState, float isDone, float gamma, DeviceDescriptor device)
     {
         List<float> experience = new List<float>(state);
         experience.Add(action);
@@ -133,7 +112,42 @@ class Agent
         experience.AddRange(nextState);
         experience.Add(isDone);
 
-        m_memory.Add(experience.ToArray());
+        var experienceArray = experience.ToArray();
+        float error;
+        CalculateQValues(experienceArray, gamma, device, out error);
+
+        m_memory.Add(error, experienceArray);
+    }
+
+    public float[] CalculateQValues(float[] experience, float gamma, DeviceDescriptor device, out float error)
+    {
+        float[] currentState = new float[m_stateSize];
+        Array.Copy(experience, 0, currentState, 0, m_stateSize);
+
+        var action = (int)experience[m_stateSize];
+        var reward = experience[m_stateSize + 1];  //state size + action + reward offset
+        var isDone = experience[(m_stateSize * 2) + 2] > 0.0f;
+
+        var qValues = GetLocalQValues(currentState, device).ToArray<float>();
+
+        var prevVal = qValues[action];
+        qValues[action] = reward;
+
+        if (!isDone)
+        {
+            float[] nextState = new float[m_stateSize];
+            Array.Copy(experience, m_stateSize + 2, nextState, 0, m_stateSize);
+
+            var ddqnAction = GetArgMax(GetLocalQValues(nextState, device));
+
+            qValues[action] += gamma * GetTargetQValues(nextState, device)[ddqnAction];
+        }
+
+        qValues[action] = UnityEngine.Mathf.Clamp(qValues[action], -1.0f, 1.0f);
+
+        error = Math.Abs(qValues[action] - prevVal);
+
+        return qValues;
     }
 
     public int Act(float[] state, float epsillon, int actionSize, DeviceDescriptor device, bool useTargetNetwork = false)

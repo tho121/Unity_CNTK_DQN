@@ -8,14 +8,16 @@ public class CNTKTest : MonoBehaviour {
 
     public GraphUI graphScript;
 
-    const int EpisodeCount = 4000;
+    const int EpisodeCount = 2000;
     const int MaxSteps = 10;
     const float MinEpsillon = 0.01f;
-    const int LayerSize = 24;
-    const float Gamma = 0.99f;
-    const int BatchSize = 128;
+    const int LayerSize = 64;
+    const float Gamma = 0.9f;
+    const int BatchSize = 64;
 
     const int PrintInterval = 100;
+
+    float Lambda = 0.0001f;
 
 	// Use this for initialization
 	void Start ()
@@ -66,7 +68,9 @@ public class CNTKTest : MonoBehaviour {
 
             if(isTraining)
             {
-                epsillon = Mathf.Max(minEpsillon, 1.0f - ((float)epi / episodeCount ));
+                epsillon = Mathf.Max(minEpsillon, 1.0f - (epi/episodeCount));
+
+                //epsillon = minEpsillon + ((1.0f - minEpsillon) * (float)Math.Exp(-Lambda * epi));
             }
 
             float episodeReward = 0.0f;
@@ -78,7 +82,7 @@ public class CNTKTest : MonoBehaviour {
             for (t = 0; t < MaxSteps; t++)
             {
                 //debug!
-                if( t == 0 && (epi % 500 == 0))
+                if(isTraining && t == 0 && (epi % 500 == 0))
                 {
                     foreach(var q in agent.GetLocalQValues(currentState, m_device))
                     {
@@ -104,7 +108,7 @@ public class CNTKTest : MonoBehaviour {
 
                 if(isTraining)
                 {
-                    agent.Observe(currentState, (float)action, reward, nextState, isFinished ? 1.0f : 0.0f);
+                    agent.Observe(currentState, (float)action, reward, nextState, isFinished ? 1.0f : 0.0f, Gamma, m_device);
                     agent.Train(BatchSize, Gamma, m_device);
                 }
 
@@ -142,10 +146,10 @@ public class CNTKTest : MonoBehaviour {
 
                 }
 
-                //if((epi + 1) % 50 == 0)
-                //{
-                //    agent.TransferLearning(m_device);
-                //}
+                if ((epi + 1) % 50 == 0)
+                {
+                    agent.TransferLearning(m_device);
+                }
             }
 
             rewardQueue.Enqueue((float)episodeReward);

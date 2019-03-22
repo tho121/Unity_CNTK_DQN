@@ -23,8 +23,8 @@ public class Environment
         MoveDown = 3,
     }
 
-    int[] grid = {0, 1, 1, 1,
-                  1, 3, 1, 2,
+    int[] grid = {0, 1, 1, 3,
+                  1, 1, 1, 2,
                   1, 1, 1, 1};
 
     const int NumOfCols = 4;
@@ -62,7 +62,7 @@ public class Environment
     public bool Act(Actions action, out float reward)
     {
         bool isFinished = false;
-        reward = -0.1f;
+        reward = -0.2f;
 
         int row = m_currentPosition / NumOfCols;
         int col = m_currentPosition % NumOfCols;
