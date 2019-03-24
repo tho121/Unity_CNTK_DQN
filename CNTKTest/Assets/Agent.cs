@@ -21,16 +21,16 @@ class Agent
 
         m_qTargetOutput = CNTKLib.InputVariable(new int[] { m_actionSize }, DataType.Float, "targetOutput");
 
-        var loss = CNTKLib.ReduceMean(CNTKLib.Square(CNTKLib.Minus(m_localNetwork.Output, m_qTargetOutput)), new Axis(0));
-        var meas = CNTKLib.ReduceMean(CNTKLib.Square(CNTKLib.Minus(m_localNetwork.Output, m_qTargetOutput)), new Axis(0));
+        var loss = CNTKLib.Square(CNTKLib.Minus(m_localNetwork.Output, m_qTargetOutput));
+        var meas = CNTKLib.Square(CNTKLib.Minus(m_localNetwork.Output, m_qTargetOutput));
 
         var vp = new VectorPairSizeTDouble()
         {
-            new PairSizeTDouble(1, 0.1),
+            //new PairSizeTDouble(1, 0.1),
+            new PairSizeTDouble(2, 0.1),
             new PairSizeTDouble(1, 0.05),
             new PairSizeTDouble(1, 0.02),
             new PairSizeTDouble(1, 0.01),
-            new PairSizeTDouble(1, 0.005),
         };
 
         var learningRate = new TrainingParameterScheduleDouble(vp, 400);
@@ -39,7 +39,7 @@ class Agent
 
         m_trainer = Trainer.CreateTrainer(m_localNetwork, loss, meas, learner);
 
-        m_memory = new Memory(m_stateSize, 512);
+        m_memory = new Memory(m_stateSize, 1024);
     }
 
     public void Train(int sampleSize, float gamma, DeviceDescriptor device)

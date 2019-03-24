@@ -17,7 +17,7 @@ public class CNTKTest : MonoBehaviour {
 
     const int PrintInterval = 100;
 
-    float Lambda = 0.0001f;
+    const float Lambda = 0.005f;    //approaches 2000
 
 	// Use this for initialization
 	void Start ()
@@ -55,10 +55,10 @@ public class CNTKTest : MonoBehaviour {
         }
     }
 
-    IEnumerator Play(Agent agent, Environment env, int episodeCount = 100, float minEpsillon = 0.05f, bool isTraining = true)
+    IEnumerator Play(Agent agent, Environment env, int episodeCount = 100, float minEpsilon = 0.05f, bool isTraining = true)
     {
         var actionSize = env.GetActionSize();
-        var epsillon = isTraining ? 1.0f : minEpsillon;
+        var epsilon = isTraining ? 1.0f : minEpsilon;
 
         var rewardQueue = new Queue<float>(100);
 
@@ -68,9 +68,13 @@ public class CNTKTest : MonoBehaviour {
 
             if(isTraining)
             {
-                epsillon = Mathf.Max(minEpsillon, 1.0f - (epi/episodeCount));
+                //epsilon = 1.0f;
+                //epsilon = Mathf.Max(minEpsilon, 1.0f - (epi * 0.5f /episodeCount));
 
-                //epsillon = minEpsillon + ((1.0f - minEpsillon) * (float)Math.Exp(-Lambda * epi));
+                //epsilon = minEpsilon + ((1.0f - minEpsilon) * (float)Math.Exp(-Lambda * epi));
+
+                var epsi = Mathf.Max(0.0f, (float)Math.Pow(((float)epi / episodeCount), 4.0f));
+                epsilon = Mathf.Max(minEpsilon, 1.0f - epsi);
             }
 
             float episodeReward = 0.0f;
@@ -95,7 +99,7 @@ public class CNTKTest : MonoBehaviour {
                     }
                 }
 
-                var action = agent.Act(currentState, epsillon, actionSize, m_device, !isTraining);
+                var action = agent.Act(currentState, epsilon, actionSize, m_device, !isTraining);
 
                 actions.Add(action);
 

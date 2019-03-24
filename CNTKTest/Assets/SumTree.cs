@@ -12,6 +12,11 @@ public class SumTree
         m_capacity = capacity;
         m_tree = new List<float>(new float[capacity * 2 - 1]);
         m_data = new List<float[]>(capacity);
+
+        for(int i = 0; i < capacity; ++i)
+        {
+            m_data.Add(new float[] { });
+        }
     }
 
     public void Propagate(int idx, float change)
@@ -55,14 +60,7 @@ public class SumTree
     {
         int idx = m_write + m_capacity - 1;
 
-        if(m_write >= m_data.Count)
-        {
-            m_data.Add(data);
-        }
-        else
-        {
-            m_data[m_write] = data;
-        }
+        m_data[m_write] = data;
 
         Update(idx, p);
 
@@ -89,6 +87,11 @@ public class SumTree
         int dataIdx = idx - m_capacity + 1;
 
         treeVal = m_tree[idx];
+
+        if(dataIdx >= m_data.Count)
+        {
+            Debug.Log("wtf");
+        }
 
         return m_data[dataIdx];
     }
