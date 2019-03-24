@@ -9,10 +9,10 @@ public class CNTKTest : MonoBehaviour {
     public GraphUI graphScript;
 
     const int EpisodeCount = 2000;
-    const int MaxSteps = 20;
+    const int MaxSteps = 10;
     const float MinEpsillon = 0.01f;
     const int LayerSize = 32;
-    const float Gamma = 0.99f;
+    const float Gamma = 0.9f;
     const int BatchSize = 64;
 
     const int PrintInterval = 100;
@@ -97,6 +97,7 @@ public class CNTKTest : MonoBehaviour {
                 if(isTraining)
                 {
                     agent.Observe(currentState, (float)action, reward, nextState, isFinished ? 1.0f : 0.0f);
+                    agent.Train(BatchSize, Gamma, m_device);
                 }
 
                 if (isFinished)
@@ -120,8 +121,6 @@ public class CNTKTest : MonoBehaviour {
 
             if(isTraining)
             {
-                agent.Train(BatchSize, Gamma, m_device);
-
                 if(epi > BatchSize)
                 {
                     m_allRewards.Add((float)agent.GetTrainingLoss());

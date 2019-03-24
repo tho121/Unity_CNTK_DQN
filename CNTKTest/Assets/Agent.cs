@@ -21,10 +21,18 @@ class Agent
 
         m_qTargetOutput = CNTKLib.InputVariable(new int[] { m_actionSize }, DataType.Float, "targetOutput");
 
-        var loss = CNTKLib.ReduceMean(CNTKLib.Square(CNTKLib.Minus(m_localNetwork, m_qTargetOutput)), new Axis(0));
-        var meas = CNTKLib.ReduceMean(CNTKLib.Square(CNTKLib.Minus(m_localNetwork, m_qTargetOutput)), new Axis(0));
+        var loss = CNTKLib.Square(CNTKLib.Minus(m_localNetwork, m_qTargetOutput));
+        var meas = CNTKLib.Square(CNTKLib.Minus(m_localNetwork, m_qTargetOutput));
 
-        var learningRate = new TrainingParameterScheduleDouble(LearningRate);
+        var vp = new VectorPairSizeTDouble()
+        {
+            new PairSizeTDouble(2, 0.1),
+            new PairSizeTDouble(1, 0.05),
+            new PairSizeTDouble(1, 0.02),
+            new PairSizeTDouble(1, 0.01),
+        };
+
+        var learningRate = new TrainingParameterScheduleDouble(vp, 400);
 
         var learner = new List<Learner>() { Learner.SGDLearner(m_localNetwork.Parameters(), learningRate) };
 

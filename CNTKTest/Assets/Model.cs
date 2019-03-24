@@ -17,7 +17,7 @@ class Model
 
         var z = CNTKLib.Times(weights, input);
         z = CNTKLib.Plus(bias, z);
-        Function sigmoid = CNTKLib.Sigmoid(z, "LinearSigmoid");
+        Function sigmoid = CNTKLib.Tanh(z, "Tanh");
         return sigmoid;
     }
 
@@ -28,8 +28,8 @@ class Model
         var linear1 = LinearLayer(inputVariable, layerSize);
         //var relu1 = CNTKLib.ReLU(linear1);
         var linear2 = LinearLayer(linear1, layerSize);
-        var relu2 = CNTKLib.ReLU(linear2);
-        var linear3 = LinearLayer(relu2, actionSize);
+        //var relu2 = CNTKLib.ReLU(linear2);
+        var linear3 = LinearLayer(linear2, actionSize);
         //var relu3 = CNTKLib.ReLU(linear3);
         //var linear4 = LinearLayer(relu3, actionSize);
 
