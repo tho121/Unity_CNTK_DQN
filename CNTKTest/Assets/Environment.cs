@@ -24,7 +24,7 @@ public class Environment
     }
 
     int[] grid = {0, 1, 1, 1,
-                  1, 1, 1, 2,
+                  1, 2, 1, 2,
                   1, 1, 1, 3};
 
     const int NumOfCols = 4;

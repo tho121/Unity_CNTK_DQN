@@ -8,12 +8,12 @@ public class CNTKTest : MonoBehaviour {
 
     public GraphUI graphScript;
 
-    const int EpisodeCount = 2000;
+    const int EpisodeCount = 4000;
     const int MaxSteps = 10;
     const float MinEpsillon = 0.01f;
-    const int LayerSize = 32;
+    const int LayerSize = 64;
     const float Gamma = 0.9f;
-    const int BatchSize = 64;
+    const int BatchSize = 128;
 
     const int PrintInterval = 100;
 
@@ -61,7 +61,7 @@ public class CNTKTest : MonoBehaviour {
 
             if(isTraining)
             {
-                epsillon = Mathf.Max(minEpsillon, 1.0f - ((float)epi / episodeCount ));
+                epsillon = Mathf.Max(minEpsillon, 1.0f - (float)Math.Pow((float)epi / episodeCount, 2.0f));
             }
 
             float episodeReward = 0.0f;

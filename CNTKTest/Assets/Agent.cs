@@ -26,13 +26,15 @@ class Agent
 
         var vp = new VectorPairSizeTDouble()
         {
-            new PairSizeTDouble(2, 0.1),
-            new PairSizeTDouble(1, 0.05),
+            //new PairSizeTDouble(2, 0.2),
+            //new PairSizeTDouble(1, 0.1),
+            //new PairSizeTDouble(1, 0.05),
+            //new PairSizeTDouble(1, 0.02),
             new PairSizeTDouble(1, 0.02),
             new PairSizeTDouble(1, 0.01),
         };
 
-        var learningRate = new TrainingParameterScheduleDouble(vp, 400);
+        var learningRate = new TrainingParameterScheduleDouble(vp, 4000);
 
         var learner = new List<Learner>() { Learner.SGDLearner(m_localNetwork.Parameters(), learningRate) };
 
