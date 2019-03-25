@@ -3,8 +3,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using DQN;
 
-public class CNTKTest : MonoBehaviour {
+public class DQNTest : MonoBehaviour {
 
     public GraphUI graphScript;
 
@@ -14,6 +15,7 @@ public class CNTKTest : MonoBehaviour {
     const int LayerSize = 64;
     const float Gamma = 0.9f;
     const int BatchSize = 128;
+    const int EpisodesPerTransfer = 50;
 
     const int PrintInterval = 100;
 
@@ -25,7 +27,7 @@ public class CNTKTest : MonoBehaviour {
 
         m_allRewards = new List<float>(EpisodeCount);
 
-        m_environment = new Environment();
+        m_environment = new DQN.Environment();
         var stateSize = m_environment.GetStateSize();
         var actionSize = m_environment.GetActionSize();
         m_agent = new Agent(stateSize, actionSize, LayerSize);
@@ -48,7 +50,7 @@ public class CNTKTest : MonoBehaviour {
         }
     }
 
-    IEnumerator Play(Agent agent, Environment env, int episodeCount = 100, float minEpsillon = 0.05f, bool isTraining = true)
+    IEnumerator Play(Agent agent, DQN.Environment env, int episodeCount = 100, float minEpsillon = 0.05f, bool isTraining = true)
     {
         var actionSize = env.GetActionSize();
         var epsillon = isTraining ? 1.0f : minEpsillon;
@@ -73,7 +75,7 @@ public class CNTKTest : MonoBehaviour {
             for (t = 0; t < MaxSteps; t++)
             {
                 //debug!
-                if( t == 0 && (epi == 100 || epi == 1000 || epi == 1500 ))
+                if( t == 0 && (epi % 500  == 0))
                 {
                     foreach(var q in agent.GetLocalQValues(currentState, m_device))
                     {
@@ -81,14 +83,12 @@ public class CNTKTest : MonoBehaviour {
                     }
                 }
 
-
-
                 var action = agent.Act(currentState, epsillon, actionSize, m_device, !isTraining);
 
                 actions.Add(action);
 
                 float reward = 0.0f;
-                bool isFinished = env.Act((Environment.Actions)action, out reward);
+                bool isFinished = env.Act((DQN.Environment.Actions)action, out reward);
 
                 episodeReward += reward;
 
@@ -102,17 +102,6 @@ public class CNTKTest : MonoBehaviour {
 
                 if (isFinished)
                 {
-                    if(false)//!isTraining)
-                    {
-                        string path = "";
-                        for(int a = 0; a < actions.Count; ++a)
-                        {
-                            path += " " + actions[a].ToString();
-                        }
-
-                        Debug.Log("Path: " + path);
-                    }
-
                     break;
                 }
 
@@ -132,7 +121,7 @@ public class CNTKTest : MonoBehaviour {
 
                 }
 
-                if((epi + 1) % 50 == 0)
+                if((epi + 1) % EpisodesPerTransfer == 0)
                 {
                     agent.TransferLearning(m_device);
                 }
@@ -166,7 +155,7 @@ public class CNTKTest : MonoBehaviour {
     private Coroutine m_currentCoroutine;
     private int m_coroutineCount = 0;
 
-    private Environment m_environment;
+    private DQN.Environment m_environment;
     private Agent m_agent;
 
     private List<float> m_allRewards;
