@@ -46,7 +46,7 @@ namespace DQN
                 return allSamples;
             }
 
-            ShuffleClass.Shuffle<int>(m_randomIndexList);
+            Utils.Shuffle<int>(m_randomIndexList);
 
             List<float> samples = new List<float>(sampleSize * m_experienceSize);
 
@@ -74,23 +74,5 @@ namespace DQN
         private Queue<float> m_memoryBuffer;
         private int m_experienceSize;
         private int[] m_randomIndexList;
-    }
-
-    static class ShuffleClass
-    {
-        private static Random rng = new Random();
-
-        public static void Shuffle<T>(this IList<T> list)
-        {
-            int n = list.Count;
-            while (n > 1)
-            {
-                n--;
-                int k = rng.Next(n + 1);
-                T value = list[k];
-                list[k] = list[n];
-                list[n] = value;
-            }
-        }
     }
 }

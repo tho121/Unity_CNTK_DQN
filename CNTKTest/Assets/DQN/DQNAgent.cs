@@ -103,10 +103,10 @@ namespace DQN
             Value output = Value.CreateBatch<float>(new int[] { m_actionSize }, rewardsFlattened, device);
 
             var arguments = new Dictionary<Variable, Value>()
-        {
-            { m_stateInput, input },
-            { m_qTargetOutput, output}
-        };
+            {
+                { m_stateInput, input },
+                { m_qTargetOutput, output}
+            };
 
             m_trainer.TrainMinibatch(arguments, false, device);
         }
@@ -153,14 +153,14 @@ namespace DQN
             Value input = Value.CreateBatch<float>(new int[] { state.Length }, state, device);
 
             var inputDict = new Dictionary<Variable, Value>()
-        {
-            { m_stateInput, input },
-        };
+            {
+                { m_stateInput, input },
+            };
 
             var outputDict = new Dictionary<Variable, Value>()
-        {
-            {m_localNetwork.Output, null }
-        };
+            {
+                {m_localNetwork.Output, null }
+            };
 
             m_localNetwork.Evaluate(inputDict, outputDict, device);
 

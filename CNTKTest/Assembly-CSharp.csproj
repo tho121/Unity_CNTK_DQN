@@ -65,7 +65,13 @@
     <Compile Include="Assets\DQN\DQNMemory.cs" />
     <Compile Include="Assets\DQN\DQNModel.cs" />
     <Compile Include="Assets\DQN\DQNTest.cs" />
-    <Compile Include="Assets\GraphUI.cs" />
+    <Compile Include="Assets\Utils\GraphUI.cs" />
+    <Compile Include="Assets\Utils\Utils.cs" />
+    <Compile Include="Assets\VPG\VPGActor.cs" />
+    <Compile Include="Assets\VPG\VPGAgent.cs" />
+    <Compile Include="Assets\VPG\VPGCritic.cs" />
+    <Compile Include="Assets\VPG\VPGEnvironment.cs" />
+    <Compile Include="Assets\VPG\VPGTest.cs" />
     <Reference Include="UnityEditor.StandardEvents">
       <HintPath>C:/Users/Tony/Desktop/CNTKTest/CNTKTestDQN/CNTKTest/Library/ScriptAssemblies/UnityEditor.StandardEvents.dll</HintPath>
     </Reference>
@@ -278,6 +284,9 @@
     </Reference>
     <Reference Include="Cntk.Core.Managed-2.6">
       <HintPath>C:/Users/Tony/Desktop/CNTKTest/CNTKTestDQN/CNTKTest/Assets/Plugins/CNTKDLLs/Cntk.Core.Managed-2.6.dll</HintPath>
+    </Reference>
+    <Reference Include="cs-estimation-of-distribution-algorithms">
+      <HintPath>C:/Users/Tony/Desktop/CNTKTest/CNTKTestDQN/CNTKTest/Assets/Plugins/EDA/Release/cs-estimation-of-distribution-algorithms.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.Analytics">
       <HintPath>C:/Users/Tony/AppData/Local/Unity/cache/packages/packages.unity.com/com.unity.analytics@2.0.16/UnityEngine.Analytics.dll</HintPath>

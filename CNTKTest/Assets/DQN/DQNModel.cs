@@ -10,6 +10,8 @@ namespace DQN
 {
     class Model
     {
+        //TODO: since we're mapping qvalues, try no activation function (forces values to be -1 to 1)
+        //https://engmrk.com/activation-function-for-dnn/
         private static Function Layer(Variable input, int outputCount)
         {
             Parameter bias = new Parameter(new int[] { outputCount }, DataType.Float, 0);
