@@ -38,7 +38,7 @@ public static class Utils {
     public static Function GaussianLogProbabilityLayer(Function mean, Function std, Variable value)
     {
         var constant2 = Constant.Scalar(DataType.Float, 2);
-        var pdfDom = CNTKLib.ElementTimes(CNTKLib.Pow(std, constant2), Constant.Scalar(DataType.Double, System.Math.PI * 2));
+        var pdfDom = CNTKLib.ElementTimes(CNTKLib.Pow(std, constant2), Constant.Scalar(DataType.Float, System.Math.PI * 2));
         pdfDom = CNTKLib.Pow(pdfDom, Constant.Scalar(DataType.Float, 0.5));
 
         var pdfNum = CNTKLib.Pow(CNTKLib.Minus(value, mean), constant2);

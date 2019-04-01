@@ -41,7 +41,7 @@ public class VPGCritic {
 
         var layer1 = Layer(m_inputVariable, layerSize);
         var layer2 = Layer(layer1, layerSize);
-        var layer3 = Layer(layer2, actionSize); //each action space will have a mean and std calculated
+        var layer3 = Layer(layer2, actionSize);
 
         m_model = layer3;
     }

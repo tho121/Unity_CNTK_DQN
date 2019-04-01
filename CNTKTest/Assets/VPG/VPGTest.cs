@@ -6,7 +6,7 @@ using System;
 
 public class VPGTest : MonoBehaviour {
 
-    const int MaxEpisodes = 1000;
+    const int MaxEpisodes = 5000;
     const int LayerSize = 128;
     const int MaxSteps = 250;
     const float Gamma = 0.95f;
@@ -14,6 +14,7 @@ public class VPGTest : MonoBehaviour {
     public bool isTraining = true;
 
     public VPGEnvironment env;
+    public GraphUI graph;
 
     private void Awake()
     {
@@ -87,10 +88,29 @@ public class VPGTest : MonoBehaviour {
                 float xRot = actions[0];
                 float zRot = actions[1];
 
-                env.Act(xRot, xRot);
+                env.Act(xRot, zRot);
             }
             else
             {
+                Debug.Log("Episode: " + m_currentEpisode + " " + m_currentRewards);
+
+                m_rewards.Add(m_currentRewards);
+
+                if(m_rewards.Count >= 100)
+                {
+                    float total = 0;
+                    foreach(var r in m_rewards)
+                    {
+                        total += r;
+                    }
+
+                    var avg = (total / 100);
+                    m_rewardAverages.Add(avg);
+
+                    Debug.Log("AVERAGE: " + avg);
+                    m_rewards.Clear();
+                }
+
                 env.Reset();
                 m_currentEpisode++;
                 m_currentRewards = 0.0f;
@@ -98,6 +118,11 @@ public class VPGTest : MonoBehaviour {
 
             //todo: make sure this works with both conditions
             m_prevState = currentState;
+        }
+        else
+        {
+            graph.ShowGraph(m_rewardAverages);
+            graph.transform.parent.gameObject.SetActive(true);
         }
     }
 
@@ -109,6 +134,8 @@ public class VPGTest : MonoBehaviour {
     private float[] m_prevState;
 
     private List<float[]> m_trajectory = new List<float[]>(MaxSteps);
+    private List<float> m_rewards = new List<float>();
+    private List<float> m_rewardAverages = new List<float>();
 
     private VPGActor m_actor;
     private VPGCritic m_critic;

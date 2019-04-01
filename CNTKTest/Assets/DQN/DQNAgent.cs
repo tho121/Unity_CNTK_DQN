@@ -39,7 +39,7 @@ namespace DQN
 
             var learner = new List<Learner>() { Learner.SGDLearner(m_localNetwork.Parameters(), learningRate) };
 
-            m_trainer = Trainer.CreateTrainer(m_localNetwork, loss, meas, learner);
+            m_trainer = Trainer.CreateTrainer(m_localNetwork, loss, null, learner);
 
             m_memory = new Memory(m_stateSize);
         }

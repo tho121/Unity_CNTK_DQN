@@ -18,6 +18,7 @@ public class VPGEnvironment : MonoBehaviour {
 
         m_ballStartPos = ball.position;
         m_platformRB = platform.GetComponent<Rigidbody>();
+        m_ballRB = ball.GetComponent<Rigidbody>();
 
         Reset();
     }
@@ -39,18 +40,19 @@ public class VPGEnvironment : MonoBehaviour {
 
     public void Reset()
     {
-        platform.Rotate(new Vector3(
+        platform.rotation = Quaternion.Euler(
             Random.Range(-MaxAngle, MaxAngle),
             0.0f,
-            Random.Range(-MaxAngle, MaxAngle)),
-            Space.World);
+            Random.Range(-MaxAngle, MaxAngle));
 
+        m_ballRB.velocity = Vector3.zero;
         ball.position = m_ballStartPos;
     }
 
     public bool IsDone()
     {
-        return ball.transform.position.y < -0.5f;
+        //return ball.transform.position.y < -0.5f || ball.transform.position.y > 1.5f;
+        return (ball.transform.position - platform.transform.position).sqrMagnitude > 4.0f;
     }
 
     public float[] GetState()
@@ -59,8 +61,10 @@ public class VPGEnvironment : MonoBehaviour {
         m_state[1] = ball.position.y;
         m_state[2] = ball.position.z;
 
-        m_state[3] = platform.rotation.x;
-        m_state[4] = platform.rotation.z;
+        var euler = platform.rotation.eulerAngles;
+
+        m_state[3] = euler.x;
+        m_state[4] = euler.z;
 
         return m_state;
     }
@@ -78,10 +82,17 @@ public class VPGEnvironment : MonoBehaviour {
     //values from -1 to 1
     public void Act(float rotX, float rotZ)
     {
-        m_platformRB.MoveRotation(Quaternion.Euler(rotX * MaxAngle, 0.0f, rotZ * MaxAngle));
+        //Debug.Log(m_platformRB.rotation.eulerAngles);
+        var result = Quaternion.Inverse(m_platformRB.rotation) * Quaternion.Euler(rotX * MaxAngle, 0.0f, rotZ * MaxAngle);
+        m_platformRB.MoveRotation(result);
+
+
+
+        //m_platformRB.rotation = Quaternion.Euler(rotX * MaxAngle, 0.0f, rotZ * MaxAngle);
     }
 
     private Vector3 m_ballStartPos;
     private Rigidbody m_platformRB;
+    private Rigidbody m_ballRB;
     private float[] m_state = new float[5];
 }
