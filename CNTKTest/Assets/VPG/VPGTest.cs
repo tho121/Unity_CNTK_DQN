@@ -6,7 +6,7 @@ using System;
 
 public class VPGTest : MonoBehaviour {
 
-    const int MaxEpisodes = 5000;
+    const int MaxEpisodes = 50000;
     const int LayerSize = 128;
     const int MaxSteps = 250;
     const float Gamma = 0.95f;
@@ -87,6 +87,9 @@ public class VPGTest : MonoBehaviour {
 
                 float xRot = actions[0];
                 float zRot = actions[1];
+
+                //float xRot = UnityEngine.Random.Range(-1.0f, 1.0f);
+                //float zRot = UnityEngine.Random.Range(-1.0f, 1.0f);
 
                 env.Act(xRot, zRot);
             }

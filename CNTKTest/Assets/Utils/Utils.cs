@@ -6,6 +6,17 @@ using CNTK;
 
 public static class Utils {
 
+    public static Function Layer(Variable input, int outputCount)
+    {
+        Parameter bias = new Parameter(new int[] { outputCount }, DataType.Float, CNTKLib.UniformInitializer(CNTKLib.DefaultParamInitScale));
+        Parameter weights = new Parameter(new int[] { outputCount, input.Shape[0] }, DataType.Float,
+            CNTKLib.UniformInitializer(CNTKLib.DefaultParamInitScale));
+
+        var z = CNTKLib.Times(weights, input);
+        z = CNTKLib.Plus(bias, z);
+        return z;
+    }
+
     //credit
     //https://gist.github.com/tansey/1444070
     public static double SampleGaussian(double mean, double stddev)
@@ -35,7 +46,7 @@ public static class Utils {
     }
 
     //https://www.tensorflow.org/api_docs/python/tf/distributions/Normal
-    public static Function GaussianLogProbabilityLayer(Function mean, Function std, Variable value)
+    public static Function GaussianProbabilityLayer(Function mean, Function std, Variable value)
     {
         var constant2 = Constant.Scalar(DataType.Float, 2);
         var pdfDom = CNTKLib.ElementTimes(CNTKLib.Pow(std, constant2), Constant.Scalar(DataType.Float, System.Math.PI * 2));
@@ -51,9 +62,26 @@ public static class Utils {
         pdfNum = CNTKLib.ElementTimes(pdfNum, Constant.Scalar(DataType.Float, -0.5f));
         pdfNum = CNTKLib.Exp(pdfNum);
 
-        var pdf = CNTKLib.ElementTimes(pdfNum, CNTKLib.Pow(pdfDom, Constant.Scalar(DataType.Float, -1)));
+        var pdf = CNTKLib.ElementDivide(pdfNum, pdfDom);
 
         return pdf;
+    }
+
+    //https://www.tensorflow.org/api_docs/python/tf/distributions/Normal
+    public static Function GaussianLogProbabilityLayer(Function mean, Function std, Variable value)
+    {
+        var constant2 = Constant.Scalar(DataType.Float, 2);
+        var diff = CNTKLib.Minus(value, mean);
+        var temp1 = CNTKLib.ElementTimes(diff, diff);
+        temp1 = CNTKLib.ElementDivide(temp1, CNTKLib.ElementTimes(constant2, CNTKLib.ElementTimes(std, std)));
+        temp1 = CNTKLib.Exp(CNTKLib.Negate(temp1));
+
+        var temp2 = CNTKLib.ElementDivide(
+            Constant.Scalar(DataType.Float, 1),
+            CNTKLib.Sqrt(
+                CNTKLib.ElementTimes(
+                    CNTKLib.ElementTimes(std, std), Constant.Scalar(DataType.Float, 2 * Mathf.PI))));
+        return CNTKLib.ElementTimes(temp1, temp2);
     }
 
     private static System.Random rng = new System.Random();

@@ -7,14 +7,14 @@ public class VPGEnvironment : MonoBehaviour {
     public Transform platform;
     public Transform ball;
 
-    public float MaxAngle = 45.0f;
+    public float MaxAngle = 40.0f;
 
     public bool selfReseting = false;
 
     //public Vector3 testRot;
 
 	// Use this for initialization
-	void Start () {
+	void Awake () {
 
         m_ballStartPos = ball.position;
         m_platformRB = platform.GetComponent<Rigidbody>();
@@ -52,7 +52,7 @@ public class VPGEnvironment : MonoBehaviour {
     public bool IsDone()
     {
         //return ball.transform.position.y < -0.5f || ball.transform.position.y > 1.5f;
-        return (ball.transform.position - platform.transform.position).sqrMagnitude > 4.0f;
+        return (ball.transform.position - platform.transform.position).sqrMagnitude > 10.0f;
     }
 
     public float[] GetState()
@@ -63,8 +63,13 @@ public class VPGEnvironment : MonoBehaviour {
 
         var euler = platform.rotation.eulerAngles;
 
-        m_state[3] = euler.x;
-        m_state[4] = euler.z;
+        m_state[3] = euler.x / 360.0f;
+        m_state[4] = euler.y / 360.0f;
+        m_state[5] = euler.z / 360.0f;
+
+        m_state[6] = m_ballRB.velocity.x;
+        m_state[7] = m_ballRB.velocity.y;
+        m_state[8] = m_ballRB.velocity.z;
 
         return m_state;
     }
@@ -82,17 +87,20 @@ public class VPGEnvironment : MonoBehaviour {
     //values from -1 to 1
     public void Act(float rotX, float rotZ)
     {
+
+
         //Debug.Log(m_platformRB.rotation.eulerAngles);
-        var result = Quaternion.Inverse(m_platformRB.rotation) * Quaternion.Euler(rotX * MaxAngle, 0.0f, rotZ * MaxAngle);
+        //var result = Quaternion.Inverse(m_platformRB.rotation) * Quaternion.Euler(rotX * MaxAngle, 0.0f, rotZ * MaxAngle);
+        //m_platformRB.MoveRotation(result);
+
+
+        var result = Quaternion.RotateTowards(platform.rotation, Quaternion.Euler(rotX * MaxAngle, 0.0f, rotZ * MaxAngle), MaxAngle * Time.fixedDeltaTime * 3.0f);
         m_platformRB.MoveRotation(result);
-
-
-
         //m_platformRB.rotation = Quaternion.Euler(rotX * MaxAngle, 0.0f, rotZ * MaxAngle);
     }
 
     private Vector3 m_ballStartPos;
     private Rigidbody m_platformRB;
     private Rigidbody m_ballRB;
-    private float[] m_state = new float[5];
+    private float[] m_state = new float[9];
 }

@@ -62,7 +62,7 @@ public class VPGActor {
 
             m_normalSamples.Add(CNTKLib.InputVariable(new int[] { 1 }, DataType.Float));
 
-            logProbList.Add(Utils.GaussianLogProbabilityLayer(m_mean[i], m_std[i], m_normalSamples[i]));
+            logProbList.Add(Utils.GaussianProbabilityLayer(m_mean[i], m_std[i], m_normalSamples[i]));
         }
 
         var combinedLogProb = CNTKLib.Splice(logProbList, new Axis(0));
