@@ -41,7 +41,7 @@ namespace DQN
 
             m_trainer = Trainer.CreateTrainer(m_localNetwork, loss, null, learner);
 
-            m_memory = new Memory(m_stateSize);
+            m_memory = new Memory((stateSize * 2) + 3);//current state, action, reward, next state, done
         }
 
         public void Train(int sampleSize, float gamma, DeviceDescriptor device)

@@ -62,18 +62,15 @@
   <ItemGroup>
     <Compile Include="Assets\DQN\DQNAgent.cs" />
     <Compile Include="Assets\DQN\DQNEnvironment.cs" />
-    <Compile Include="Assets\DQN\DQNMemory.cs" />
     <Compile Include="Assets\DQN\DQNModel.cs" />
     <Compile Include="Assets\DQN\DQNTest.cs" />
     <Compile Include="Assets\PPO\PPOAgent.cs" />
     <Compile Include="Assets\PPO\PPOTest.cs" />
-    <Compile Include="Assets\REINPG\REINPGTest.cs" />
     <Compile Include="Assets\Utils\GraphUI.cs" />
+    <Compile Include="Assets\Utils\Memory.cs" />
     <Compile Include="Assets\Utils\Utils.cs" />
-    <Compile Include="Assets\VPG\VPGActor.cs" />
-    <Compile Include="Assets\VPG\VPGAgent.cs" />
-    <Compile Include="Assets\VPG\VPGCritic.cs" />
-    <Compile Include="Assets\VPG\VPGEnvironment.cs" />
+    <Compile Include="Assets\VPG\BallEnvironment.cs" />
+    <Compile Include="Assets\VPG\VGPAgent.cs" />
     <Compile Include="Assets\VPG\VPGTest.cs" />
     <Reference Include="UnityEditor.StandardEvents">
       <HintPath>C:/Users/Tony/Desktop/CNTKTest/CNTKTestDQN/CNTKTest/Library/ScriptAssemblies/UnityEditor.StandardEvents.dll</HintPath>

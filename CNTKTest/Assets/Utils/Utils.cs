@@ -49,28 +49,6 @@ public static class Utils {
     public static Function GaussianProbabilityLayer(Function mean, Function std, Variable value)
     {
         var constant2 = Constant.Scalar(DataType.Float, 2);
-        var pdfDom = CNTKLib.ElementTimes(CNTKLib.Pow(std, constant2), Constant.Scalar(DataType.Float, System.Math.PI * 2));
-        pdfDom = CNTKLib.Pow(pdfDom, Constant.Scalar(DataType.Float, 0.5));
-
-        var pdfNum = CNTKLib.Pow(CNTKLib.Minus(value, mean), constant2);
-
-        //no division, pow to -1 to create recipocal then multiply
-        var temp0 = CNTKLib.Pow(std, constant2);
-        var temp = CNTKLib.Pow(temp0, Constant.Scalar(DataType.Float, -1));
-        pdfNum = CNTKLib.ElementTimes(pdfNum, temp);
-
-        pdfNum = CNTKLib.ElementTimes(pdfNum, Constant.Scalar(DataType.Float, -0.5f));
-        pdfNum = CNTKLib.Exp(pdfNum);
-
-        var pdf = CNTKLib.ElementDivide(pdfNum, pdfDom);
-
-        return pdf;
-    }
-
-    //https://www.tensorflow.org/api_docs/python/tf/distributions/Normal
-    public static Function GaussianLogProbabilityLayer(Function mean, Function std, Variable value)
-    {
-        var constant2 = Constant.Scalar(DataType.Float, 2);
         var diff = CNTKLib.Minus(value, mean);
         var temp1 = CNTKLib.ElementTimes(diff, diff);
         temp1 = CNTKLib.ElementDivide(temp1, CNTKLib.ElementTimes(constant2, CNTKLib.ElementTimes(std, std)));

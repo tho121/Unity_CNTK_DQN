@@ -229,10 +229,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 94999904}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fc6225b047b80a04eab3ef097021ace3, type: 3}
+  m_Script: {fileID: 11500000, guid: 4f9c6e3f410cb0b4db983714e18e248f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   env: {fileID: 94999906}
+  MaxEpisodes: 50000
+  MaxTimeSteps: 5000
   graph: {fileID: 4209662}
 --- !u!114 &94999906
 MonoBehaviour:

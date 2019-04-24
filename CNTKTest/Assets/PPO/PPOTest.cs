@@ -6,10 +6,10 @@ using System;
 
 public class PPOTest : MonoBehaviour {
 
-    public VPGEnvironment env;
+    public BallEnvironment env;
     
-    public const int MaxEpisodes = 80000;
-    public const int MaxTimeSteps = 10000;  //at fixed timestep 0.02 -> 200 seconds
+    public int MaxEpisodes = 1000;
+    public int MaxTimeSteps = 5000;  //at fixed timestep 0.02 -> 5000 * 0.02 = 100 seconds
     public const float Gamma = 0.9555f;
     
     public GraphUI graph;
@@ -22,22 +22,11 @@ public class PPOTest : MonoBehaviour {
         m_device = DeviceDescriptor.UseDefaultDevice();
         print($"Hello from CNTK for {m_device.Type} only!");
 
-        m_agent = new PGActor(env.GetStateSize(), env.GetActionSize());
-
+        m_agent = new PPOAgent(env.GetStateSize(), env.GetActionSize(), MaxTimeSteps, m_device);
 
         StartCoroutine(Step());
 	}
 	
-	// Update is called once per frame
-	//void Update () {
-		
-	//}
-
- //   private void FixedUpdate()
- //   {
-        
- //   }
-
     IEnumerator Step()
     {
         int currentEpisode = 0;
@@ -46,11 +35,12 @@ public class PPOTest : MonoBehaviour {
 
         List<float> rewards = new List<float>(MaxTimeSteps);
         List<float> states = new List<float>(MaxTimeSteps * stateSize);
-        List<float> actions1 = new List<float>(MaxTimeSteps);
-        List<float> actions2 = new List<float>(MaxTimeSteps);
+        List<float> actions = new List<float>(MaxTimeSteps * actionSize);
 
+        List<float> probabilities = new List<float>(MaxTimeSteps * actionSize);
         List<float> advantages = new List<float>(MaxTimeSteps);
         List<float> futureRewards = new List<float>(MaxTimeSteps);
+        List<float> targetValues = new List<float>(MaxTimeSteps);
 
         List<float> rewardsAvg = new List<float>(100);
         List<float> totalRewardsAvg = new List<float>(MaxEpisodes / 100);
@@ -66,24 +56,24 @@ public class PPOTest : MonoBehaviour {
             env.Reset();
             rewards.Clear();
             states.Clear();
-            actions1.Clear();
-            actions2.Clear();
+            actions.Clear();
             advantages.Clear();
             futureRewards.Clear();
+            targetValues.Clear();
 
             var state = env.GetState();
 
             int t = 0;
             for (; t < MaxTimeSteps; ++t)
             {
-                var currentActions = m_agent.Act(state, m_device);
+                var currentProbabilites = new float[actionSize];
+                var currentActions = m_agent.Act(state, m_device, out currentProbabilites);
                 //Debug.Log("Actions: " + currentActions[0] + " " + currentActions[1]);
                 env.Act(currentActions[0], currentActions[1]);
 
                 states.AddRange(state);
-                actions1.Add(currentActions[0]);
-                actions2.Add(currentActions[1]);
-
+                actions.AddRange(currentActions);
+                probabilities.AddRange(currentProbabilites);
                 //update Physics
                 yield return new WaitForFixedUpdate();
 
@@ -103,7 +93,8 @@ public class PPOTest : MonoBehaviour {
 
             for(int i = 0; i < states.Count / stateSize; ++i)
             {
-                var currentVal = m_agent.Predict(states.GetRange(i * stateSize, stateSize).ToArray(), m_device);
+                var currentState = states.GetRange(i * stateSize, stateSize).ToArray();
+                var currentVal = m_agent.Predict(currentState, m_device);
 
                 float totalRewards = 0.0f;
                 for (int j = 0; j < rewards.Count; ++j)
@@ -111,8 +102,16 @@ public class PPOTest : MonoBehaviour {
                     totalRewards += rewards[j] * (float)System.Math.Pow(Gamma, (float)j);
                 }
 
-                advantages.Add(totalRewards - currentVal);
+                var advantage = totalRewards - currentVal;
+
+                targetValues.Add(currentVal);
+                advantages.Add(advantage);
                 futureRewards.Add(totalRewards);
+
+                var currentActions = actions.GetRange(i * actionSize, actionSize).ToArray();
+                var currentProbabilities = probabilities.GetRange(i * actionSize, actionSize).ToArray();
+
+                m_agent.AddExperience(currentState, currentActions, currentProbabilities, currentVal, advantage);
             }
 
             float rewardsSum = 0.0f;
@@ -121,22 +120,22 @@ public class PPOTest : MonoBehaviour {
                 rewardsSum += rewards[j];
             }
 
+
             //Debug.Log("Rewards: " + rewardsSum);
 
-            m_agent.TrainValueModel(states.ToArray(), futureRewards.ToArray(), m_device);
-            m_agent.TrainPolicyModel(states.ToArray(), advantages.ToArray(), actions1.ToArray(), actions2.ToArray(), m_device);
+            m_agent.Train(m_device);
 
             currentEpisode++;
 
             rewardsAvg.Add(rewardsSum);
-            policyLossAvg.Add(m_agent.GetPolicyModelLoss());
-            valueLossAvg.Add(m_agent.GetValueModelLoss());
+            policyLossAvg.Add(m_agent.GetModelLoss());
+            //valueLossAvg.Add(m_agent.GetValueModelLoss());
 
             if (rewardsAvg.Count >= 100)
             {
                 ProcessAvg(ref rewardsAvg, ref totalRewardsAvg);
                 ProcessAvg(ref policyLossAvg, ref totalPolicyLossAvg);
-                ProcessAvg(ref valueLossAvg, ref totalValueLossAvg);
+                //ProcessAvg(ref valueLossAvg, ref totalValueLossAvg);
 
                 Debug.Log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Rewards Avg: " + totalRewardsAvg[totalRewardsAvg.Count - 1]);
             }
@@ -145,7 +144,7 @@ public class PPOTest : MonoBehaviour {
         graph.transform.parent.gameObject.SetActive(true);
         graph.ShowGraph(totalRewardsAvg, 0);
         graph.ShowGraph(totalPolicyLossAvg, 1);
-        graph.ShowGraph(totalValueLossAvg, 2);
+        //graph.ShowGraph(totalValueLossAvg, 2);
     }
 
     private void ProcessAvg(ref List<float> avgList, ref List<float> totalAvgList)
@@ -164,5 +163,5 @@ public class PPOTest : MonoBehaviour {
     }
 
     private DeviceDescriptor m_device;
-    private PGActor m_agent;
+    private PPOAgent m_agent;
 }

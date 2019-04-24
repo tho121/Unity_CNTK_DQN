@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class VPGEnvironment : MonoBehaviour {
+public class BallEnvironment : MonoBehaviour {
 
     public Transform platform;
     public Transform ball;
