@@ -10,7 +10,7 @@ public class PPOTest : MonoBehaviour {
     
     public int MaxEpisodes = 1000;
     public int MaxTimeSteps = 5000;  //at fixed timestep 0.02 -> 5000 * 0.02 = 100 seconds
-    public const float Gamma = 0.9555f;
+    public const float Gamma = 0.99f;
     
     public GraphUI graph;
 
@@ -60,6 +60,7 @@ public class PPOTest : MonoBehaviour {
             advantages.Clear();
             futureRewards.Clear();
             targetValues.Clear();
+            probabilities.Clear();
 
             var state = env.GetState();
 
@@ -74,12 +75,15 @@ public class PPOTest : MonoBehaviour {
                 states.AddRange(state);
                 actions.AddRange(currentActions);
                 probabilities.AddRange(currentProbabilites);
+                targetValues.Add(m_agent.Predict(state, m_device));
                 //update Physics
                 yield return new WaitForFixedUpdate();
 
                 bool isDone = env.IsDone();
 
-                if(isDone)
+                float[] nextState = env.GetState();
+
+                if (isDone)
                 {
                     rewards.Add(0.0f);
                     break;
@@ -87,31 +91,18 @@ public class PPOTest : MonoBehaviour {
 
                 rewards.Add(Time.fixedDeltaTime);   //reward is 1 per second
 
-                float[] nextState = env.GetState();
                 state = nextState;
             }
 
-            for(int i = 0; i < states.Count / stateSize; ++i)
+            advantages.AddRange(Utils.CalculateGAE(rewards.ToArray(), targetValues.ToArray(), Gamma));
+
+            for (int i = 0; i < states.Count / stateSize; ++i)
             {
                 var currentState = states.GetRange(i * stateSize, stateSize).ToArray();
-                var currentVal = m_agent.Predict(currentState, m_device);
-
-                float totalRewards = 0.0f;
-                for (int j = 0; j < rewards.Count; ++j)
-                {
-                    totalRewards += rewards[j] * (float)System.Math.Pow(Gamma, (float)j);
-                }
-
-                var advantage = totalRewards - currentVal;
-
-                targetValues.Add(currentVal);
-                advantages.Add(advantage);
-                futureRewards.Add(totalRewards);
-
                 var currentActions = actions.GetRange(i * actionSize, actionSize).ToArray();
                 var currentProbabilities = probabilities.GetRange(i * actionSize, actionSize).ToArray();
 
-                m_agent.AddExperience(currentState, currentActions, currentProbabilities, currentVal, advantage);
+                m_agent.AddExperience(currentState, currentActions, currentProbabilities, targetValues[i], advantages[i]);
             }
 
             float rewardsSum = 0.0f;
@@ -137,13 +128,15 @@ public class PPOTest : MonoBehaviour {
                 ProcessAvg(ref policyLossAvg, ref totalPolicyLossAvg);
                 //ProcessAvg(ref valueLossAvg, ref totalValueLossAvg);
 
+                graph.ShowGraph(totalRewardsAvg, 0);
+                graph.ShowGraph(totalPolicyLossAvg, 1);
+
                 Debug.Log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Rewards Avg: " + totalRewardsAvg[totalRewardsAvg.Count - 1]);
             }
         }
 
         graph.transform.parent.gameObject.SetActive(true);
-        graph.ShowGraph(totalRewardsAvg, 0);
-        graph.ShowGraph(totalPolicyLossAvg, 1);
+        
         //graph.ShowGraph(totalValueLossAvg, 2);
     }
 

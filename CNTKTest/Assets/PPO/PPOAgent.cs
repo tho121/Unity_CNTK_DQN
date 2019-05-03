@@ -10,11 +10,11 @@ class PPOAgent
 {
     const int LayerSize = 64;
 
-    const float LearningRate = 0.001f;
+    const float LearningRate = 0.01f;
     const float AdamBeta1 = 0.9f;
     const float AdamBeta2 = 0.999f;
-    const float Epsilon = 0.00001f;
-    const float EntropyCoefficient = 0.1f;
+    const float Epsilon = 0.0000001f;
+    const float EntropyCoefficient = 0.0001f;
 
     public PPOAgent(int stateSize, int actionSize, int maxSteps, DeviceDescriptor device)
     {
@@ -43,21 +43,23 @@ class PPOAgent
     {
         var l1 = CNTKLib.Tanh(Utils.Layer(m_inputState, LayerSize));
         var l2 = CNTKLib.Tanh(Utils.Layer(l1, LayerSize));
+        //var l3 = CNTKLib.Tanh(Utils.Layer(l2, LayerSize));
+        var l2b = CNTKLib.Tanh(Utils.Layer(m_inputState, LayerSize));
 
-        m_means = Utils.Layer(l2, actionSize);
-        m_stds = CNTKLib.Exp( new Parameter(new int[] { actionSize }, DataType.Float, CNTKLib.ConstantInitializer(0)));
+        m_means = CNTKLib.Tanh(Utils.Layer(l2, actionSize));
+        m_stds = CNTKLib.Exp(new Parameter(new int[] { actionSize }, DataType.Float, CNTKLib.ConstantInitializer(0)));
+        //m_stds = CNTKLib.ReLU(Utils.Layer(l2b, actionSize));
 
         m_policyModel = CNTK.Function.Combine(new Variable[] { m_means, m_stds });
 
         var vl1 = CNTKLib.ReLU(Utils.Layer(m_inputState, LayerSize));
-        var vl2 = CNTKLib.ReLU(Utils.Layer(vl1, LayerSize));
-        m_valueModel = CNTKLib.Tanh(Utils.Layer(vl2, LayerSize));
-
+        m_valueModel = Utils.Layer(vl1, 1);
+   
         var valueLoss = CNTKLib.SquaredError(m_valueModel.Output, m_targetValue);
 
         //entropy loss
-        var temp = CNTKLib.ElementTimes(Constant.Scalar(DataType.Float, 2 * UnityEngine.Mathf.PI * 2.7182818285), m_stds);
-        temp = CNTKLib.ElementTimes(Constant.Scalar(DataType.Float, 0.5), temp);
+        var temp = CNTKLib.ElementTimes(m_stds, Constant.Scalar(DataType.Float, 2 * UnityEngine.Mathf.PI * 2.7182818285));
+        temp = CNTKLib.ElementTimes(temp, Constant.Scalar(DataType.Float, 0.5));
         var entropy = CNTKLib.ReduceSum(temp, Axis.AllStaticAxes());
         //probability
         var actionProb = Utils.GaussianProbabilityLayer(m_means, m_stds, m_inputAction);
@@ -84,6 +86,14 @@ class PPOAgent
             new TrainingParameterScheduleDouble(AdamBeta2), 
             Epsilon);
 
+
+        var learningRate = new TrainingParameterScheduleDouble(LearningRate);
+        var options = new AdditionalLearningOptions();
+        options.gradientClippingThresholdPerSample = 1;
+        //options.l2RegularizationWeight = 0.01;
+
+        var sgdlearner = Learner.SGDLearner(m_policyModel.Parameters(), learningRate, options);
+
         m_trainer = CNTK.Trainer.CreateTrainer(finalLoss, finalLoss, finalLoss, new List<Learner>() { learner });
     }
 
@@ -108,7 +118,7 @@ class PPOAgent
         var meansDenseData = meansValue.GetDenseData<float>(m_means.Output)[0];
 
         var stdsValue = outputDict[m_stds.Output];
-        var stdsDenseData = meansValue.GetDenseData<float>(m_stds.Output)[0];
+        var stdsDenseData = stdsValue.GetDenseData<float>(m_stds.Output)[0];
 
         float[] denseDataFloat = new float[m_actionSize];
         meansDenseData.CopyTo(denseDataFloat, 0);
@@ -118,8 +128,8 @@ class PPOAgent
 
         stdsDenseData.CopyTo(denseDataFloat, 0);
 
-        m_normDist[0].StdDev = denseDataFloat[0];
-        m_normDist[1].StdDev = denseDataFloat[1];
+        m_normDist[0].StdDev = Mathf.Max(Mathf.Sqrt( denseDataFloat[0]), Epsilon);
+        m_normDist[1].StdDev = Mathf.Max(Mathf.Sqrt(denseDataFloat[1]), Epsilon);
 
         var sample1 = Mathf.Clamp((float)m_normDist[0].Next(), -1.0f, 1.0f);
         var sample2 = Mathf.Clamp((float)m_normDist[1].Next(), -1.0f, 1.0f);
@@ -151,7 +161,8 @@ class PPOAgent
         float[] denseDataFloat = new float[denseData.Count];
         denseData.CopyTo(denseDataFloat, 0);
 
-        return UnityEngine.Mathf.Clamp(denseDataFloat[0], -1.0f, 1.0f);
+        return denseDataFloat[0];
+        //return UnityEngine.Mathf.Clamp(denseDataFloat[0], -1.0f, 1.0f);
     }
 
     public void AddExperience(float[] state, float[] actions, float[] probabilities, float targetValue, float advantage)

@@ -51,15 +51,42 @@ public static class Utils {
         var constant2 = Constant.Scalar(DataType.Float, 2);
         var diff = CNTKLib.Minus(value, mean);
         var temp1 = CNTKLib.ElementTimes(diff, diff);
-        temp1 = CNTKLib.ElementDivide(temp1, CNTKLib.ElementTimes(constant2, CNTKLib.ElementTimes(std, std)));
+        temp1 = CNTKLib.ElementDivide(temp1, CNTKLib.ElementTimes(constant2, std)); // CNTKLib.ElementTimes(std, std)
         temp1 = CNTKLib.Exp(CNTKLib.Negate(temp1));
 
         var temp2 = CNTKLib.ElementDivide(
             Constant.Scalar(DataType.Float, 1),
             CNTKLib.Sqrt(
                 CNTKLib.ElementTimes(
-                    CNTKLib.ElementTimes(std, std), Constant.Scalar(DataType.Float, 2 * Mathf.PI))));
+                    std, Constant.Scalar(DataType.Float, 2 * Mathf.PI)))); // CNTKLib.ElementTimes(std, std)
         return CNTKLib.ElementTimes(temp1, temp2);
+    }
+
+    public static float[] CalculateGAE(float[] rewards, float[] targetValues, float discountFactor, float finalValue = 0.0f)
+    {
+        float[] advantages = new float[rewards.Length];
+
+        for(int i = 0; i < rewards.Length; ++i)
+        {
+            if(i + 1 < rewards.Length)
+            {
+                advantages[i] = rewards[i] - targetValues[i] + (discountFactor * targetValues[i + 1]);
+            }
+            else
+            {
+                advantages[i] = rewards[i] - targetValues[i] + (discountFactor * finalValue);
+            }
+        }
+
+        float[] rewardsTotal = new float[rewards.Length];
+        float rewardTotal = 0.0f;
+
+        for (int i = rewards.Length - 1; i >=0; --i)
+        {
+            rewardsTotal[i] = rewardTotal = rewardTotal * discountFactor + advantages[i];
+        }
+
+        return rewardsTotal;
     }
 
     private static System.Random rng = new System.Random();
