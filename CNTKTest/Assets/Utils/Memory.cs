@@ -7,7 +7,7 @@ class Memory
     public Memory(int experienceSize, int capacity = 1024)
     {
         m_experienceSize = experienceSize;
-
+        m_capacity = capacity;
         m_memoryBuffer = new Queue<float>(capacity * m_experienceSize);
         m_randomIndexList = new int[capacity];
 
@@ -21,6 +21,16 @@ class Memory
     {
         //array should be size of m_inputSize
         Debug.Assert(experience.Length == m_experienceSize);
+
+        if(m_memoryBuffer.Count + experience.Length > m_capacity * m_experienceSize)
+        {
+            for (int i = 0; i < experience.Length; ++i)
+            {
+                m_memoryBuffer.Dequeue();
+            }
+
+            Debug.LogWarning("MEMORY DEQUEUE");
+        }
 
         for (int i = 0; i < experience.Length; ++i)
         {
@@ -79,7 +89,13 @@ class Memory
         return m_experienceSize;
     }
 
+    public int GetCurrentMemorySize()
+    {
+        return m_memoryBuffer.Count / m_experienceSize;
+    }
+
     private Queue<float> m_memoryBuffer;
     private int m_experienceSize;
     private int[] m_randomIndexList;
+    private int m_capacity;
 }

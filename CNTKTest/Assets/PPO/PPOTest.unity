@@ -233,8 +233,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   env: {fileID: 94999906}
-  MaxEpisodes: 50000
+  MaxEpisodes: 500000
   MaxTimeSteps: 5000
+  LoadSavedModel: 0
+  SaveTraining: 0
   graph: {fileID: 4209662}
 --- !u!114 &94999906
 MonoBehaviour:

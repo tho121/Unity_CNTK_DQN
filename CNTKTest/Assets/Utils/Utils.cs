@@ -62,6 +62,71 @@ public static class Utils {
         return CNTKLib.ElementTimes(temp1, temp2);
     }
 
+    public static Function NormalProbabilityFunction(Variable input, Variable mean, Variable std)
+    {
+        var constant2 = Constant.Scalar(DataType.Float, 2);
+        var variance = CNTKLib.Pow(std, constant2);
+
+        //probability
+        var diff = CNTKLib.Minus(input, mean);
+        var temp1 = CNTKLib.ElementTimes(diff, diff);
+        temp1 = CNTKLib.ElementDivide(temp1, CNTKLib.ElementTimes(constant2, variance));
+        temp1 = CNTKLib.Exp(CNTKLib.Negate(temp1));
+
+        var temp2 = CNTKLib.ElementDivide(
+            Constant.Scalar(DataType.Float, 1),
+            CNTKLib.Sqrt(
+                CNTKLib.ElementTimes(
+                    variance, Constant.Scalar(DataType.Float, 2 * Mathf.PI))));
+        return CNTKLib.ElementTimes(temp1, temp2);
+    }
+
+    public static float NormalProbability(float sample, float mean, float stddev)
+    {
+        var variance = stddev * stddev;
+        var diff = sample - mean;
+        var temp1 = diff * diff;
+        temp1 = temp1 / (variance * 2.0f);
+        temp1 = Mathf.Exp(-temp1);
+
+        var temp2 = 1.0f / Mathf.Sqrt(variance * 2 * Mathf.PI);
+
+        return temp1 * temp2;
+    }
+
+    //https://github.com/openai/spinningup/blob/master/spinup/exercises/problem_set_1_solutions/exercise1_2_soln.py
+    public static Function NormalLogProbabilityLayer(Function mean, Function log_std, Variable value)
+    {
+        //pre_sum = -0.5 * (  ( (x-mu)/(tf.exp(log_std) + EPS) )**2 + 2*log_std + np.log(2*np.pi)  )
+        var constant2 = Constant.Scalar(DataType.Float, 2.0f);
+        
+        var diff = CNTKLib.Minus(value, mean);
+        var returnVal = CNTKLib.ElementDivide(diff, CNTKLib.Plus(CNTKLib.Exp(log_std), Constant.Scalar(DataType.Float, 0.0000001)));
+        returnVal = CNTKLib.Pow(returnVal, constant2);
+
+        returnVal = CNTKLib.Plus(returnVal, CNTKLib.ElementTimes(log_std, constant2));
+
+        returnVal = CNTKLib.Plus(returnVal, Constant.Scalar(DataType.Float, Mathf.Log(2.0f * Mathf.PI)));
+
+        returnVal = CNTKLib.Negate(CNTKLib.ElementDivide(returnVal, constant2));
+        
+        return returnVal;
+    }
+
+    public static float NormalLogProbability(float mean, float log_std, float value)
+    {
+        var diff = value - mean;
+
+        var returnVal = diff / (Mathf.Exp(log_std) + 0.0000001f);
+        returnVal = returnVal * returnVal;
+
+        returnVal = returnVal + (2.0f * log_std);
+
+        returnVal = returnVal + Mathf.Log(2.0f * Mathf.PI);
+
+        return returnVal / -2.0f;
+    }
+
     public static float[] CalculateGAE(float[] rewards, float[] targetValues, float discountFactor, float finalValue = 0.0f)
     {
         float[] advantages = new float[rewards.Length];
@@ -87,6 +152,38 @@ public static class Utils {
         }
 
         return rewardsTotal;
+    }
+
+    public static float[] DiscountedRewards(float[] rewards, float discountFactor = 0.99f, float nextValue = 0)
+    {
+        float accum = nextValue;
+        float[] result = new float[rewards.Length];
+        for (int i = rewards.Length - 1; i >= 0; --i)
+        {
+            accum = accum * discountFactor + rewards[i];
+            result[i] = accum;
+        }
+
+        return result;
+    }
+
+    public static float[] GeneralAdvantageEst(float[] rewards, float[] estimatedValues, float discountedFactor = 0.99f, float GAEFactor = 0.95f, float nextValue = 0)
+    {
+        Debug.Assert(rewards.Length == estimatedValues.Length);
+        float[] deltaT = new float[rewards.Length];
+        for (int i = 0; i < rewards.Length; ++i)
+        {
+            if (i != rewards.Length - 1)
+            {
+                deltaT[i] = rewards[i] + discountedFactor * estimatedValues[i + 1] - estimatedValues[i];
+            }
+            else
+            {
+                deltaT[i] = rewards[i] + discountedFactor * nextValue - estimatedValues[i];
+            }
+
+        }
+        return DiscountedRewards(deltaT, GAEFactor * discountedFactor);
     }
 
     private static System.Random rng = new System.Random();

@@ -87,7 +87,8 @@ public class BallEnvironment : MonoBehaviour {
     //values from -1 to 1
     public void Act(float rotX, float rotZ)
     {
-
+        rotX = Mathf.Clamp(rotX, -1.0f, 1.0f);
+        rotZ = Mathf.Clamp(rotZ, -1.0f, 1.0f);
 
         //Debug.Log(m_platformRB.rotation.eulerAngles);
         //var result = Quaternion.Inverse(m_platformRB.rotation) * Quaternion.Euler(rotX * MaxAngle, 0.0f, rotZ * MaxAngle);
