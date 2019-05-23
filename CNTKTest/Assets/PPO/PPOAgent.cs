@@ -6,21 +6,23 @@ using System.Text;
 using System.Threading.Tasks;
 using CNTK;
 using UnityEngine;
+using System.Linq;
 
 class PPOAgent
 {
-    const int LayerSize = 32;
+    const int LayerSize = 16;
 
-    const float LearningRate = 0.003f;
+    const float LearningRate = 0.01f;
     const float AdamBeta1 = 0.9f;
     const float AdamBeta2 = 0.999f;
     const float Epsilon = 0.0000001f;
     float EntropyCoefficient = 0.01f;
+    float ValueCoefficient = 0.5f;
 
     const string SaveModelFileName = "ppo_model.model";
     const string SaveTrainerFileName = "ppo_trainer.train";
 
-    public PPOAgent(int stateSize, int actionSize, int maxSteps, DeviceDescriptor device, bool loadSavedModels = false)
+    public PPOAgent(int stateSize, int actionSize, int maxSteps, DeviceDescriptor device, bool loadSavedModels = false, bool debugLosses = false)
     {
         m_stateSize = stateSize;
         m_actionSize = actionSize;
@@ -50,16 +52,18 @@ class PPOAgent
             if (File.Exists(SaveTrainerFileName))
                 m_trainer.RestoreFromCheckpoint(SaveTrainerFileName);
         }
+
+        m_debugLosses = debugLosses;
     }
 
     private void CreateModel(int actionSize)
     {
-        var l1 = CNTKLib.ReLU(Utils.Layer(m_inputState, LayerSize));
-        //var l2 = CNTKLib.ReLU(Utils.Layer(l1, LayerSize));
-        //var l3 = CNTKLib.ReLU(Utils.Layer(l2, LayerSize));
+        var sharedLayer1 = CNTKLib.ReLU(Utils.Layer(m_inputState, LayerSize));
+        var l2 = CNTKLib.ReLU(Utils.Layer(sharedLayer1, LayerSize));
+        var l3 = CNTKLib.ReLU(Utils.Layer(l2, LayerSize));
         //var l2b = CNTKLib.ReLU(Utils.Layer(l2, LayerSize));
 
-        m_means = CNTKLib.Tanh(Utils.Layer(l1, actionSize));
+        m_means = CNTKLib.Tanh(Utils.Layer(l3, actionSize));
 
         //https://spinningup.openai.com/en/latest/spinningup/rl_intro.html#stochastic-policies
         //Note that in both cases we output log standard deviations instead of standard deviations directly. 
@@ -68,15 +72,16 @@ class PPOAgent
         //The standard deviations can be obtained immediately from the log standard deviations by exponentiating them, so we do not lose anything by representing them this way.
 
         m_logstds = new Parameter(new int[] { actionSize }, DataType.Float, CNTKLib.ConstantInitializer(-0.5));
-        //m_stds = CNTKLib.ReLU(Utils.Layer(l2b, actionSize));
+        //var stdl2 = CNTKLib.Tanh(Utils.Layer(sharedLayer1, LayerSize));
+        //m_logstds = CNTKLib.Negate(CNTKLib.ReLU(Utils.Layer(sharedLayer1, actionSize)));   //always get a negative number, feeds into exp better
 
         m_policyModel = CNTK.Function.Combine(new Variable[] { m_means, m_logstds });
 
-        var vl1 = CNTKLib.ReLU(Utils.Layer(m_inputState, LayerSize));
-        //var vl2 = CNTKLib.ReLU(Utils.Layer(vl1, LayerSize));
-        m_valueModel = Utils.Layer(vl1, 1);
+        var vl1 = CNTKLib.ReLU(Utils.Layer(sharedLayer1, LayerSize));
+        var vl2 = Utils.Layer(vl1, LayerSize);
+        m_valueModel = Utils.Layer(vl2, 1);
    
-        var valueLoss = CNTKLib.ElementTimes(CNTKLib.SquaredError(m_targetValue, m_valueModel.Output), Constant.Scalar(DataType.Float, 1.0f));
+        m_valueLoss = CNTKLib.ElementTimes(CNTKLib.ReduceMean(CNTKLib.SquaredError(m_valueModel.Output, m_targetValue), Axis.AllStaticAxes()), Constant.Scalar(DataType.Float, ValueCoefficient));
 
         //entropy loss
         //0.5 + 0.5 * math.log(2 * math.pi) + torch.log(self.scale)
@@ -85,45 +90,49 @@ class PPOAgent
         //entropy = CNTKLib.ReduceMean(entropy, Axis.AllStaticAxes());
 
         //var std = CNTKLib.Exp(m_logstds);
+        var variance = CNTKLib.Pow(CNTKLib.Exp(m_logstds), Constant.Scalar(DataType.Float, 2.0f));
 
         ////https://math.stackexchange.com/questions/1804805/how-is-the-entropy-of-the-normal-distribution-derived
-        //var entropy = CNTKLib.Log(CNTKLib.ElementTimes(CNTKLib.ElementTimes(std, std), Constant.Scalar(DataType.Float, 2.0f * Mathf.PI * 2.7182818285)));
-        //entropy = CNTKLib.ElementTimes(entropy, Constant.Scalar(DataType.Float, 0.5));
-        //entropy = CNTKLib.ReduceSum(entropy, Axis.AllStaticAxes());
+        m_entropyLoss = CNTKLib.Log(CNTKLib.ElementTimes(variance, Constant.Scalar(DataType.Float, 2.0f * Mathf.PI * 2.7182818285)));
+        m_entropyLoss = CNTKLib.ElementTimes(m_entropyLoss, Constant.Scalar(DataType.Float, 0.5));
+        m_entropyLoss = CNTKLib.ReduceMean(m_entropyLoss, Axis.AllStaticAxes());
+        m_entropyLoss = CNTKLib.ElementTimes(m_entropyCoefficient, m_entropyLoss);
 
-        var entropy = CNTKLib.ElementTimes(Constant.Scalar(DataType.Float, 2 * Mathf.PI * 2.7182818285), CNTKLib.Pow(CNTKLib.Exp(m_logstds), Constant.Scalar(DataType.Float, 2.0f)));
-        entropy = CNTKLib.ElementTimes(Constant.Scalar(DataType.Float, 0.5), entropy);
-        entropy = CNTKLib.ReduceSum(entropy, Axis.AllStaticAxes());
+        //var entropy = CNTKLib.ElementTimes(Constant.Scalar(DataType.Float, 2 * Mathf.PI * 2.7182818285), CNTKLib.Pow(CNTKLib.Exp(m_logstds), Constant.Scalar(DataType.Float, 2.0f)));
+        //entropy = CNTKLib.ElementTimes(Constant.Scalar(DataType.Float, 0.5), entropy);
+        //entropy = CNTKLib.ReduceMean(entropy, Axis.AllStaticAxes());
 
         //probability
         var actionProb = Utils.NormalLogProbabilityLayer( m_means, m_logstds, m_inputAction);
 
-        var probRatio = CNTKLib.ElementDivide(actionProb, m_inputOldProb + Constant.Scalar(DataType.Float, 0.000001f));  //CNTKLib.Exp(CNTKLib.Minus(actionProb, m_inputOldProb + Constant.Scalar(DataType.Float, 0.0000000001f)));
+        // var probRatio = CNTKLib.ElementDivide(actionProb, m_inputOldProb + Constant.Scalar(DataType.Float, 0.000001f));  //CNTKLib.Exp(CNTKLib.Minus(actionProb, m_inputOldProb + Constant.Scalar(DataType.Float, 0.0000000001f)));
+        m_probRatio = CNTKLib.Exp(CNTKLib.Minus(actionProb, m_inputOldProb + Constant.Scalar(DataType.Float, 0.0000000001f)));
 
         var constant1 = Constant.Scalar(DataType.Float, 1.0f);
         var constantClipEpsilon = Constant.Scalar(DataType.Float, 0.2f);
 
-        var clip = CNTKLib.Clip(probRatio, CNTKLib.Minus(constant1, constantClipEpsilon), CNTKLib.Plus(constant1, constantClipEpsilon));
+        var clip = CNTKLib.Clip(m_probRatio, CNTKLib.Minus(constant1, constantClipEpsilon), CNTKLib.Plus(constant1, constantClipEpsilon));
 
-        var p_opt_a = CNTKLib.ElementTimes(probRatio, m_advantage);
+        var p_opt_a = CNTKLib.ElementTimes(m_probRatio, m_advantage);
         var p_opt_b = CNTKLib.ElementTimes(clip, m_advantage);
 
-        var policyLoss = CNTKLib.ReduceMean(CNTKLib.ElementMin(p_opt_a, p_opt_b, "min"), Axis.AllStaticAxes());
+        m_policyLoss = CNTKLib.ReduceMean(CNTKLib.ElementMin(p_opt_a, p_opt_b, "min"), Axis.AllStaticAxes());
 
-        var finalLoss = CNTKLib.Minus(policyLoss, valueLoss);
-        m_modelLoss = CNTKLib.Negate(CNTKLib.Plus(finalLoss, CNTKLib.ElementTimes(m_entropyCoefficient, entropy)));
+        var finalLoss = CNTKLib.Minus(m_policyLoss, m_valueLoss);
+        m_modelLoss = CNTKLib.Negate(CNTKLib.Plus(finalLoss, m_entropyLoss));
 
         var options = new AdditionalLearningOptions();
         //options.gradientClippingThresholdPerSample = 0.5f;
+        //options.l2RegularizationWeight = 0.1f;
 
         var learner = CNTKLib.AdamLearner(new ParameterVector(finalLoss.Parameters().ToArray()),
             new TrainingParameterScheduleDouble(LearningRate),
             new TrainingParameterScheduleDouble(AdamBeta1),
             true,
             new TrainingParameterScheduleDouble(AdamBeta2),
-            Epsilon);
-            //false,
-            //options);
+            Epsilon,
+            true,
+            options);
 
 
         //var learningRate = new TrainingParameterScheduleDouble(LearningRate);
@@ -132,7 +141,7 @@ class PPOAgent
 
         //var sgdlearner = Learner.SGDLearner(m_modelLoss.Parameters(), learningRate, options);
 
-        m_trainer = CNTK.Trainer.CreateTrainer(m_modelLoss, m_modelLoss, null, new List<Learner>() { learner });
+        m_trainer = CNTK.Trainer.CreateTrainer(finalLoss, m_modelLoss, null, new List<Learner>() { learner });
     }
 
     public float[] Act(float[] state, DeviceDescriptor device, out float[] probabilities)
@@ -289,6 +298,31 @@ class PPOAgent
 
         m_trainer.TrainMinibatch(arguments, false, device);
 
+        //for debugging
+        if (m_debugLosses)
+        {
+            var outputDict = new Dictionary<Variable, Value>()
+            {
+                { m_policyLoss.Output, null },
+                { m_valueLoss.Output, null },
+                { m_entropyLoss.Output, null },
+                {m_probRatio.Output, null },
+            };
+
+            m_modelLoss.Evaluate(arguments, outputDict, device);
+
+            var policyLoss = outputDict[m_policyLoss.Output].GetDenseData<float>(m_policyLoss.Output);
+            var valueLoss = outputDict[m_valueLoss.Output].GetDenseData<float>(m_valueLoss.Output);
+            var entropyLoss = outputDict[m_entropyLoss.Output].GetDenseData<float>(m_entropyLoss.Output);
+            var ratio = outputDict[m_probRatio.Output].GetDenseData<float>(m_probRatio.Output);
+
+            m_currentLossValues[0] = policyLoss.Average(num => num.Average());
+            m_currentLossValues[1] = valueLoss.Average(num => num.Average());
+            m_currentLossValues[2] = entropyLoss.Average(num => num.Average());
+
+            //Debug.LogWarning("ratio: " + ratio.Average(num => num.Average()));
+        }
+
         //clear episode memory
         //m_memory.ClearMemory();
         //EntropyCoefficient *= 0.9999f;
@@ -310,6 +344,11 @@ class PPOAgent
         return m_memory;
     }
 
+    public float[] GetCurrentLoss()
+    {
+        return m_currentLossValues;
+    }
+
     private Variable m_inputState;
     private Variable m_targetValue;
     private Variable m_inputAction;
@@ -320,6 +359,11 @@ class PPOAgent
     private Function m_valueModel;
     private Function m_modelLoss;
 
+    private Function m_policyLoss;
+    private Function m_valueLoss;
+    private Function m_entropyLoss;
+    private Function m_probRatio;
+
     private Function m_means;
     private Function m_logstds;
 
@@ -329,6 +373,9 @@ class PPOAgent
     private Memory m_memory;
     private int m_stateSize;
     private int m_actionSize;
+
+    private bool m_debugLosses = false;
+    private float[] m_currentLossValues = new float[3];
     
 }
 

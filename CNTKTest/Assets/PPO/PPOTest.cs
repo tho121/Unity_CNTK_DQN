@@ -17,7 +17,10 @@ public class PPOTest : MonoBehaviour {
     public bool LoadSavedModel = true;
     public bool SaveTraining = true;
 
-    const int MiniBatchSize = 512;
+    public bool SaveNow = false;
+    public bool DebugLosses = false;
+
+    const int MiniBatchSize = 1024;
     const int Epochs = 5;
     
     public GraphUI graph;
@@ -30,7 +33,7 @@ public class PPOTest : MonoBehaviour {
         m_device = DeviceDescriptor.UseDefaultDevice();
         print($"Hello from CNTK for {m_device.Type} only!");
 
-        m_agent = new PPOAgent(env.GetStateSize(), env.GetActionSize(), MaxTimeSteps, m_device, LoadSavedModel);
+        m_agent = new PPOAgent(env.GetStateSize(), env.GetActionSize(), MaxTimeSteps, m_device, LoadSavedModel, DebugLosses);
 
         StartCoroutine(Step());
 	}
@@ -51,13 +54,19 @@ public class PPOTest : MonoBehaviour {
         List<float> targetValues = new List<float>(MaxTimeSteps);
 
         List<float> rewardsAvg = new List<float>(100);
-        List<float> totalRewardsAvg = new List<float>(MaxEpisodes / 100);
+        List<float> totalRewardsAvg = new List<float>(MaxEpisodes * Epochs / 100);
 
         List<float> policyLossAvg = new List<float>(100);
-        List<float> totalPolicyLossAvg = new List<float>(MaxEpisodes / 100);
+        List<float> totalPolicyLossAvg = new List<float>(MaxEpisodes * Epochs / 100);
 
         List<float> valueLossAvg = new List<float>(100);
-        List<float> totalValueLossAvg = new List<float>(MaxEpisodes / 100);
+        List<float> totalValueLossAvg = new List<float>(MaxEpisodes * Epochs / 100);
+
+        List<float> entropyLossAvg = new List<float>(100);
+        List<float> totalEntropyLossAvg = new List<float>(MaxEpisodes * Epochs / 100);
+
+        List<float> totalLossAvg = new List<float>(100);
+        List<float> totalModelLossAvg = new List<float>(MaxEpisodes * Epochs / 100);
 
         while (currentEpisode < MaxEpisodes)
         {
@@ -93,7 +102,7 @@ public class PPOTest : MonoBehaviour {
 
                 if (isDone)
                 {
-                    rewards.Add(0.0f);
+                    rewards.Add(-1.0f);
                     break;
                 }
 
@@ -108,7 +117,7 @@ public class PPOTest : MonoBehaviour {
                 rewardsSum += rewards[j];
             }
 
-            advantages.AddRange(Utils.GeneralAdvantageEst(rewards.ToArray(), targetValues.ToArray(), Gamma, Lambda));
+            advantages.AddRange(Utils.GeneralAdvantageEst(rewards.ToArray(), targetValues.ToArray(), Gamma, Lambda, -1.0f));
 
             //for (int i = rewards.Count - 2; i >= 0 ; --i)
             //{
@@ -117,28 +126,28 @@ public class PPOTest : MonoBehaviour {
 
             //double[] advantagesConverted = new double[rewards.Count];
 
-            //for (int i = 0; i < advantages.Count; ++i)
-            //{
-            //    //var adv = rewards[i] - targetValues[i];
-            //    //advantages.Add(adv);
+            for (int i = 0; i < advantages.Count; ++i)
+            {
+                //var adv = rewards[i] - targetValues[i];
+                //advantages.Add(adv);
 
-            //    targetValues[i] += advantages[i];
+                targetValues[i] += advantages[i];
 
-            //    advantagesConverted[i] = (double)advantages[i];
-            //}
+                //advantagesConverted[i] = (double)advantages[i];
+            }
 
-            
+
 
             //m_normalDist.Process(advantagesConverted);
 
-            //for(int i = 0; i < advantages.Count; ++i)
+            //for (int i = 0; i < advantages.Count; ++i)
             //{
             //    //advantages[i] -= targetValues[i];
             //    advantages[i] = (advantages[i] - (float)m_normalDist.Mean) / ((float)m_normalDist.StdDev + 0.0000001f);
             //}
 
-            
-            
+
+
             //advantages.AddRange(Utils.CalculateGAE(rewards.ToArray(), targetValues.ToArray(), Gamma));
 
             for (int i = 0; i < states.Count / stateSize; ++i)
@@ -165,13 +174,30 @@ public class PPOTest : MonoBehaviour {
                 for(int i = 0; i < Epochs; ++i)
                 {
                     m_agent.Train(m_device);
-                    policyLossAvg.Add(m_agent.GetModelLoss());
+
+                    if(DebugLosses)
+                    {
+                        var losses = m_agent.GetCurrentLoss();
+
+                        policyLossAvg.Add(losses[0]);
+                        valueLossAvg.Add(losses[1]);
+                        entropyLossAvg.Add(losses[2]);
+                    }
+
+                    totalLossAvg.Add(m_agent.GetModelLoss());
 
                 }
 
                 m_agent.GetMemory().ClearMemory();
 
-                ProcessAvg(ref policyLossAvg, ref totalPolicyLossAvg);
+                if(DebugLosses)
+                {
+                    ProcessAvg(ref policyLossAvg, ref totalPolicyLossAvg);
+                    ProcessAvg(ref valueLossAvg, ref totalValueLossAvg);
+                    ProcessAvg(ref entropyLossAvg, ref totalEntropyLossAvg);
+                }
+                
+                ProcessAvg(ref totalLossAvg, ref totalModelLossAvg);
             }
 
 
@@ -182,9 +208,24 @@ public class PPOTest : MonoBehaviour {
                 //ProcessAvg(ref valueLossAvg, ref totalValueLossAvg);
 
                 graph.ShowGraph(totalRewardsAvg, 0);
-                graph.ShowGraph(totalPolicyLossAvg, 1);
+                graph.ShowGraph(totalModelLossAvg , 1);
 
-                Debug.Log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Rewards Avg: " + totalRewardsAvg[totalRewardsAvg.Count - 1]);
+                if (DebugLosses)
+                {
+                    graph.ShowGraph(totalValueLossAvg, 2);
+                    graph.ShowGraph(totalEntropyLossAvg, 3);
+                    graph.ShowGraph(totalPolicyLossAvg, 4);
+                }
+
+                //var losses = m_agent.GetCurrentLoss();
+                //Debug.Log(losses[0] + " " + losses[1] + " " + losses[2]);
+                Debug.Log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Rewards Avg: " + totalRewardsAvg[totalRewardsAvg.Count - 1] + " " + currentEpisode);
+            }
+
+            if(SaveNow)
+            {
+                SaveNow = false;
+                m_agent.SaveModel();
             }
 
             if(SaveTraining && (currentEpisode + 1) % 5000 == 0)

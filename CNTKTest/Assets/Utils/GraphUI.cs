@@ -45,8 +45,7 @@ public class GraphUI : MonoBehaviour {
             }
         }
 
-        Debug.Log("Low: " + yMin);
-        Debug.Log("High: " + yMax);
+        Debug.Log(index + ": " + "Low: " + yMin + " High: " + yMax);
 
         float xSpacing = (float)Screen.width / values.Count; //graphContainer.rect.width / values.Count;
 

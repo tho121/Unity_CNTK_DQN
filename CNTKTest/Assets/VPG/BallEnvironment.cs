@@ -24,9 +24,9 @@ public class BallEnvironment : MonoBehaviour {
     }
 
     // Update is called once per frame
-    void Update () {
+ //   void Update () {
 		
-	}
+	//}
 
     private void FixedUpdate()
     {
@@ -40,10 +40,12 @@ public class BallEnvironment : MonoBehaviour {
 
     public void Reset()
     {
+        var halfAngle = MaxAngle * 0.5f;
+
         platform.rotation = Quaternion.Euler(
-            Random.Range(-MaxAngle, MaxAngle),
+            Random.Range(-halfAngle, halfAngle),
             0.0f,
-            Random.Range(-MaxAngle, MaxAngle));
+            Random.Range(-halfAngle, halfAngle));
 
         m_ballRB.velocity = Vector3.zero;
         ball.position = m_ballStartPos;
@@ -63,9 +65,9 @@ public class BallEnvironment : MonoBehaviour {
 
         var euler = platform.rotation.eulerAngles;
 
-        m_state[3] = euler.x / 360.0f;
-        m_state[4] = euler.y / 360.0f;
-        m_state[5] = euler.z / 360.0f;
+        m_state[3] = euler.x > 180.0f ? (euler.x - 360.0f) / 180.0f : euler.x / 180.0f;
+        m_state[4] = euler.y > 180.0f ? (euler.y - 360.0f) / 180.0f : euler.y / 180.0f;
+        m_state[5] = euler.z > 180.0f ? (euler.z - 360.0f) / 180.0f : euler.z / 180.0f;
 
         m_state[6] = m_ballRB.velocity.x;
         m_state[7] = m_ballRB.velocity.y;
